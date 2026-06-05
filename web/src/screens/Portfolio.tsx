@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
+import { useMemo } from 'react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
 import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
+import { orderHoldings, useHoldingsOrder } from '../hooks/useHoldingsOrder'
 import { useMarket } from '../store/market'
 import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
-import { HoldingRow } from '../components/HoldingRow'
+import { SortableHoldings } from '../components/SortableHoldings'
 import { formatINR, formatPct, formatSignedINR, sign } from '../lib/format'
 
 export function PortfolioScreen() {
@@ -14,7 +16,12 @@ export function PortfolioScreen() {
   const refreshing = useMarket((s) => s.refreshing)
   const refresh = useMarket((s) => s.refresh)
   const [mode, toggleMode] = useReturnMode()
+  const { order, isCustom, save, reset } = useHoldingsOrder()
 
+  const holdings = useMemo(
+    () => orderHoldings(summary.holdings, order),
+    [summary.holdings, order],
+  )
   const hasHoldings = summary.holdings.length > 0
 
   return (
@@ -74,18 +81,21 @@ export function PortfolioScreen() {
           <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
 
           <div className="screen section">
-            <div className="section-title">Holdings</div>
-            <div className="list">
-              {summary.holdings.map((h) => (
-                <HoldingRow
-                  key={h.instrument.id}
-                  holding={h}
-                  onClick={() => navigate(`/instrument/${encodeURIComponent(h.instrument.id)}`)}
-                  mode={mode}
-                  onToggleMode={toggleMode}
-                />
-              ))}
+            <div className="section-title">
+              Holdings
+              {isCustom && (
+                <button type="button" className="link" onClick={() => void reset()}>
+                  Reset to value order
+                </button>
+              )}
             </div>
+            <SortableHoldings
+              holdings={holdings}
+              mode={mode}
+              onToggleMode={toggleMode}
+              onReorder={(ids) => void save(ids)}
+              onOpen={(id) => navigate(`/instrument/${encodeURIComponent(id)}`)}
+            />
           </div>
         </>
       )}
@@ -157,18 +167,18 @@ function Hero({
         <div className="alloc">
           <div className="alloc-bar">
             {summary.byType.stock > 0 && (
-              <span className="seg" style={{ width: `${stockPct}%`, background: '#2f80ed' }} />
+              <span className="seg" style={{ width: `${stockPct}%`, background: 'var(--stock)' }} />
             )}
             {summary.byType.mf > 0 && (
-              <span className="seg" style={{ width: `${mfPct}%`, background: '#8b5cf6' }} />
+              <span className="seg" style={{ width: `${mfPct}%`, background: 'var(--mf)' }} />
             )}
           </div>
           <div className="alloc-legend">
             <span>
-              <span className="dot" style={{ background: '#2f80ed' }} /> Stocks {stockPct.toFixed(1)}%
+              <span className="dot" style={{ background: 'var(--stock)' }} /> Stocks {stockPct.toFixed(1)}%
             </span>
             <span>
-              <span className="dot" style={{ background: '#8b5cf6' }} /> Mutual Funds {mfPct.toFixed(1)}%
+              <span className="dot" style={{ background: 'var(--mf)' }} /> Mutual Funds {mfPct.toFixed(1)}%
             </span>
           </div>
         </div>

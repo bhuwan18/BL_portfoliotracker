@@ -18,6 +18,10 @@
   --badge-pos-bg: #0b7a4b;
   --badge-neg-bg: #d12626;
   --badge-zero-bg: #5a6b85;
+  /* Instrument-type hues — shared by the hero allocation bar/legend and the subtle
+     holding-card cue, so "blue = stock, purple = mutual fund" reads consistently. */
+  --stock: #2f80ed;
+  --mf: #8b5cf6;
 }
 
 :root[data-theme='dark'] {
@@ -163,6 +167,14 @@ a {
   text-transform: none;
   letter-spacing: 0;
   font-size: 13px;
+  /* Reset native chrome so a <button class="link"> reads as a plain text link. */
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* ---------- Header ---------- */
@@ -549,6 +561,17 @@ a {
   align-items: center;
   gap: 8px;
 }
+/* Subtle type cue: a faint surface tint + slightly tinted border in the instrument's
+   hue (blue = stock, purple = MF), matching the hero allocation colours. Light shades
+   only — kept well below the active/dragging surface changes so those still read. */
+.holding-card.is-stock {
+  background: color-mix(in srgb, var(--surface) 94%, var(--stock));
+  border-color: color-mix(in srgb, var(--border-soft) 82%, var(--stock));
+}
+.holding-card.is-mf {
+  background: color-mix(in srgb, var(--surface) 94%, var(--mf));
+  border-color: color-mix(in srgb, var(--border-soft) 82%, var(--mf));
+}
 .holding-main {
   flex: 1;
   min-width: 0;
@@ -639,6 +662,53 @@ a {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+/* ---------- Sortable holdings (drag-to-reorder) ---------- */
+/* Grip handle + card laid side by side. The handle owns the drag gesture
+   (touch-action:none so a vertical drag reorders instead of scrolling); the card
+   body keeps its tap-to-open behaviour. */
+.sortable-item {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  will-change: transform;
+}
+.sortable-body {
+  flex: 1;
+  min-width: 0;
+}
+.drag-handle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: grab;
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.drag-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* Lift the row being dragged above its neighbours. */
+.sortable-item.dragging {
+  cursor: grabbing;
+}
+.sortable-item.dragging .holding-card {
+  box-shadow: var(--shadow, 0 8px 24px rgb(0 0 0 / 0.18));
+  background: var(--surface-2);
+  border-color: var(--border);
 }
 
 /* ---------- Buttons ---------- */

@@ -30,7 +30,7 @@ export function HoldingRow({
 
   return (
     <div
-      className="row tap holding-card"
+      className={`row tap holding-card ${h.instrument.type === 'mf' ? 'is-mf' : 'is-stock'}`}
       role="link"
       tabIndex={0}
       onClick={onClick}
