@@ -8,10 +8,17 @@ Guidance for working in this repository. Read this before making changes.
 (NSE/BSE)** and **mutual funds (incl. SIPs)**. A clone of the "My Funds – Portfolio
 Tracker" app.
 
-The defining architectural fact: **there is no backend database and no login.** All
+The defining architectural fact: **there is no login, and no per-user database.** All
 portfolio data (instruments, transactions, SIPs, watchlist, settings) lives **on-device in
-IndexedDB**. The server is a *stateless market-data proxy only* — it never sees or stores
-user portfolios. Each visitor's data stays in their own browser.
+IndexedDB**, and the server is a **stateless market-data proxy** for normal operation.
+
+> **One deliberate exception — "share via key":** when a user taps *Share via key* in
+> Settings, their full portfolio is uploaded **in plain text** to a Redis KV
+> (Upstash / Vercel KV) under a short random code and kept for **30 days**, so another
+> device can import it via that code (`POST/GET /api/share`). This is the only path where
+> portfolio data leaves the device or touches the server. The code is a bearer token
+> (anyone holding it can read the data); there is no encryption. See
+> [Server](#server-serversrc--market-data-proxy--share-relay) and the in-app About copy.
 
 ## Repository layout
 
@@ -19,7 +26,7 @@ npm-workspaces monorepo (workspaces: `web`, `server`):
 
 ```
 web/         React + Vite + TS PWA (all portfolio logic & data live here)
-server/      Stateless Express proxy for market data (Yahoo + MFAPI + optional Twelve Data)
+server/      Express proxy: market data (Yahoo + MFAPI + optional Twelve Data) + share-key relay
 api/         Vercel serverless shim — re-exports server/src/app.ts as a function
 vercel.json  Vercel build/deploy config (static web/dist + /api/* → the function)
 package.json Root: workspace scripts (dev/build/start/typecheck)
@@ -168,8 +175,11 @@ behind `LockScreen` when a PIN hash is set, and syncs theme on mount + OS prefer
 - `lib/format.ts` — **Indian** money formatting: `formatINR` (₹, `en-IN`), `formatINRCompact`
   (Cr ≥1e7 / L ≥1e5), `formatSignedINR` (+/−), `formatPct`, `formatUnits`. `sign()` treats
   `|n| < 1e-9` as zero (drives green/red/gray coloring).
-- `lib/backup.ts` — JSON export/import (`buildBackup`/`importBackup` merge|replace,
-  `wipeAllData`). **`pinHash` is deliberately excluded** from backups.
+- `lib/backup.ts` — `buildBackup()` (serializes all 5 tables), `parseBackup()`/`applyBackup(_, merge|replace)`,
+  `wipeAllData()`. **`pinHash` is deliberately excluded** from backups. The price cache is not included.
+- `lib/share.ts` — `shareBackup()` (POST backup → `{ code, expiresAt }`) and
+  `importFromCode()` (GET payload → `applyBackup(_, 'replace')` → reload). Replaces the old
+  file-based JSON backup/restore that used to live in `lib/backup.ts` + Settings.
 - `lib/excel.ts` — lazy-loads SheetJS, writes a two-sheet `.xlsx` (Holdings + Transactions).
 - `lib/pin.ts` — `hashPin`/`verifyPin` via SubtleCrypto SHA-256 with salt `my-funds:v1:`.
   **Convenience lock, not real security** (no timing-safe compare; data is unencrypted in
@@ -177,23 +187,26 @@ behind `LockScreen` when a PIN hash is set, and syncs theme on mount + OS prefer
 - `lib/theme.ts` — light/dark/system; sets `data-theme` + `<meta theme-color>`
   (light `#0b7a4b`, dark `#0b1120`).
 
-## Server (`server/src`) — market-data proxy
+## Server (`server/src`) — market-data proxy + share relay
 
-Stateless Express app. `app.ts` is the **pure API** (CORS + JSON, no static, no `listen`)
-so it runs identically as a single process (`index.ts`) or a Vercel function
-(`api/[...path].ts` re-exports it). `index.ts` additionally serves `web/dist` if present
-and listens on `PORT` (default **8787**).
+Express app. `app.ts` is the **pure API** (CORS + JSON, no static, no `listen`) so it runs
+identically as a single process (`index.ts`) or a Vercel function (`api/index.ts`
+re-exports it). `index.ts` additionally serves `web/dist` if present and listens on `PORT`
+(default **8787**). The JSON body limit is raised to **8mb** (default is 100kb) for share
+uploads, and a terminal error middleware returns JSON for malformed/oversize bodies.
 
 Endpoints (all JSON; success = raw normalized object, error = `{ error, detail? }`):
 
 | Method · Path | Source | Cache TTL |
 |---|---|---|
-| `GET /api/health` | — | `{ ok, ts, twelvedata }` |
+| `GET /api/health` | — | `{ ok, ts, twelvedata, kv }` (`kv` = durable share store configured) |
 | `GET /api/stocks/search?q=` | Yahoo `v1/finance/search` (EQUITY/ETF only, .NS/.BO first) | 1h; errors → `[]` |
 | `GET /api/stocks/quote?symbol=` | Yahoo `v8/finance/chart` → `StockQuote` | 5m |
 | `GET /api/stocks/history?symbol=&range=` | Yahoo `v8/finance/chart` → `StockHistory` | 6h |
 | `GET /api/mf/search?q=` | api.mfapi.in (3-attempt backoff 400/800/1200ms) | 1h; errors → `[]` |
 | `GET /api/mf/:code` | api.mfapi.in (`:code` must be **digits only**) | 30m |
+| `POST /api/share` | body = `BackupPayload`; stores plaintext in KV → `{ code, expiresAt }` | 30d TTL |
+| `GET /api/share/:code` | KV lookup (code normalized, shape-checked) → `BackupPayload` | — (404 if missing/expired) |
 
 - **Caching:** in-memory `TtlCache` (`cache.ts`) keyed by string (`quote:SYMBOL`, etc.).
   Per-process, lost on restart. TTLs tuned for once-daily close prices.
@@ -202,11 +215,35 @@ Endpoints (all JSON; success = raw normalized object, error = `{ error, detail? 
 - **Yahoo spoofs a Chrome User-Agent** to avoid 429s — required for non-browser requests.
 - Provider errors surface as `ProviderError` (default HTTP 502; Yahoo 404 preserved).
 
+### Share relay (`store.ts` + `routes/share.ts`)
+
+- **`store.ts`** is a tiny `KvStore` abstraction: `RestKvStore` talks to Upstash Redis /
+  Vercel KV over the **REST command-array API** (`POST <url>` with `Authorization: Bearer`
+  and body `["SET", key, value, "EX", ttl]` / `["GET", key]`); `MemoryKvStore` is a
+  process-local fallback used **only when no KV env vars are set** (local dev — not durable,
+  not shared across serverless invocations). `getStore()` resolves lazily; `storeIsDurable()`
+  feeds `/api/health`.
+- **Env vars** (set EITHER pair): `KV_REST_API_URL` + `KV_REST_API_TOKEN` (Vercel KV) **or**
+  `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (Upstash). Production on Vercel
+  **requires** these — the in-memory fallback won't resolve across function invocations.
+- **`routes/share.ts`:** short codes are 8 chars of a 30-symbol Crockford base32 alphabet
+  (no ambiguous `0/O/1/I/L/U`), generated with `randomBytes` + rejection sampling (~39 bits),
+  formatted `ABCD-EFGH`; stored/looked-up under the normalized `share:<CODE>` key. POST
+  validates `app === 'my-funds'` + a `data` object and rejects payloads > 6 MB (413).
+- **Plaintext + bearer code:** payloads are stored unencrypted; the code grants read access.
+  `pinHash` is stripped client-side in `buildBackup()`.
+
 ## Deployment (Vercel)
 
 Static PWA on the CDN + Express proxy as a serverless function. `vercel.json`: build →
 `web/dist`, SPA rewrite of everything except `/api/*` to `/index.html`. Deploy from repo
 root: `npx vercel --prod`. Optionally set `TWELVEDATA_API_KEY` in project env vars.
+
+**Required for "share via key":** provision a Redis KV (Vercel KV / Upstash marketplace
+integration, or a bare Upstash database) and set its REST URL + token env vars (see
+[Share relay](#share-relay-storets--routesshare)). Without them the share endpoints fall
+back to in-memory storage, which **does not work on serverless** (each invocation is a
+separate instance) — share keys won't resolve. `vercel.json` needs no change.
 
 ## Gotchas (read before editing)
 
@@ -217,6 +254,10 @@ root: `npx vercel --prod`. Optionally set `TWELVEDATA_API_KEY` in project env va
   a file from the user's own data and never parses untrusted input — keep it that way.
 - **No tests.** Validate with `npm run typecheck`. TS strict mode is on everywhere.
 - **PIN is not encryption** and **backups omit `pinHash`** — don't market either as secure.
+- **Share keys are plaintext + bearer tokens.** `POST /api/share` stores the full portfolio
+  unencrypted for 30 days; anyone with the code can read it. Don't describe it as private or
+  encrypted, and keep `pinHash` stripped from the payload (`buildBackup` already does this).
+  Production needs the KV env vars or codes silently won't resolve on serverless.
 - **`sips.active` isn't indexed** (IDB Boolean limitation) — filter active SIPs in JS.
 - **Dates are ISO `YYYY-MM-DD` strings** throughout the domain/db layers and rely on
   lexicographic ordering. `createdAt`/`asOf`/`time` are epoch ms. Don't mix the two.

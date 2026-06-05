@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { CalendarClock, Plus, RefreshCw, Star, TrendingUp, Wallet } from 'lucide-react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
+import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
 import { useMarket } from '../store/market'
 import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
 import { DonutChart } from '../components/DonutChart'
@@ -13,6 +14,7 @@ export function PortfolioScreen() {
   const tracked = useTrackedInstruments()
   const refreshing = useMarket((s) => s.refreshing)
   const refresh = useMarket((s) => s.refresh)
+  const [mode, toggleMode] = useReturnMode()
 
   const hasHoldings = summary.holdings.length > 0
 
@@ -37,7 +39,7 @@ export function PortfolioScreen() {
         <Loading label="Loading portfolio…" />
       ) : !hasHoldings ? (
         <>
-          <Hero summary={summary} />
+          <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
           <QuickActions />
           <div className="screen">
             <EmptyState
@@ -54,7 +56,7 @@ export function PortfolioScreen() {
         </>
       ) : (
         <>
-          <Hero summary={summary} />
+          <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
           <QuickActions />
 
           {summary.currentValue > 0 && <Allocation summary={summary} />}
@@ -72,6 +74,8 @@ export function PortfolioScreen() {
                   key={h.instrument.id}
                   holding={h}
                   onClick={() => navigate(`/instrument/${encodeURIComponent(h.instrument.id)}`)}
+                  mode={mode}
+                  onToggleMode={toggleMode}
                 />
               ))}
             </div>
@@ -82,7 +86,15 @@ export function PortfolioScreen() {
   )
 }
 
-function Hero({ summary }: { summary: ReturnType<typeof usePortfolio>['summary'] }) {
+function Hero({
+  summary,
+  mode,
+  onToggleMode,
+}: {
+  summary: ReturnType<typeof usePortfolio>['summary']
+  mode: ReturnMode
+  onToggleMode: () => void
+}) {
   return (
     <div className="hero">
       <div className="label">Current value</div>
@@ -92,9 +104,23 @@ function Hero({ summary }: { summary: ReturnType<typeof usePortfolio>['summary']
           Today {summary.dayChange >= 0 ? '▲' : '▼'} {formatINR(Math.abs(summary.dayChange), 0)} (
           {formatPct(summary.dayChangePct, false)})
         </span>
-        <span className="pill">
-          Overall {summary.totalPnl >= 0 ? '▲' : '▼'} {formatPct(summary.totalPnlPct, false)}
-        </span>
+        <button
+          type="button"
+          className="pill"
+          onClick={onToggleMode}
+          aria-label="Toggle overall return and XIRR"
+        >
+          {mode === 'xirr' ? (
+            <>
+              XIRR {(summary.xirr ?? 0) >= 0 ? '▲' : '▼'}{' '}
+              {summary.xirr != null ? formatPct(summary.xirr, false) : '—'}
+            </>
+          ) : (
+            <>
+              Overall {summary.totalPnl >= 0 ? '▲' : '▼'} {formatPct(summary.totalPnlPct, false)}
+            </>
+          )}
+        </button>
       </div>
       <div className="hero-grid">
         <div className="hero-stat">
@@ -116,8 +142,11 @@ function Hero({ summary }: { summary: ReturnType<typeof usePortfolio>['summary']
           </div>
         </div>
         <div className="hero-stat">
-          <div className="k">XIRR</div>
-          <div className="v tnum">{summary.xirr != null ? formatPct(summary.xirr) : '—'}</div>
+          <div className="k">Day's gain</div>
+          <div className="v tnum">
+            {summary.dayChange >= 0 ? '+' : '−'}
+            {formatINR(Math.abs(summary.dayChange), 0)}
+          </div>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw, Wallet } from 'lucide-react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
+import { useReturnMode } from '../hooks/useReturnMode'
 import { useMarket } from '../store/market'
 import { AppBar, EmptyState, Loading, Pill, SegmentedControl, Spinner } from '../components/ui'
 import { HoldingRow } from '../components/HoldingRow'
@@ -23,6 +24,7 @@ export function HoldingsScreen() {
   const refreshing = useMarket((s) => s.refreshing)
   const refresh = useMarket((s) => s.refresh)
   const [filter, setFilter] = useState<Filter>('all')
+  const [mode, toggleMode] = useReturnMode()
 
   const filtered = useMemo(
     () =>
@@ -103,6 +105,8 @@ export function HoldingsScreen() {
                   key={h.instrument.id}
                   holding={h}
                   onClick={() => navigate(`/instrument/${encodeURIComponent(h.instrument.id)}`)}
+                  mode={mode}
+                  onToggleMode={toggleMode}
                 />
               ))}
             </div>

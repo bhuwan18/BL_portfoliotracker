@@ -1,22 +1,23 @@
-import { useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  Download,
+  ClipboardCopy,
   FileSpreadsheet,
   KeyRound,
   Lock,
   Palette,
+  Share2,
   ShieldOff,
   Trash2,
-  Upload,
 } from 'lucide-react'
 import { db, getSetting, setSetting } from '../db'
 import { usePortfolio } from '../hooks/usePortfolio'
-import { AppBar, SegmentedControl, useToast } from '../components/ui'
+import { AppBar, SegmentedControl, Spinner, useToast } from '../components/ui'
 import { Sheet } from '../components/Sheet'
 import { hashPin } from '../lib/pin'
 import { applyTheme, type ThemeMode } from '../lib/theme'
-import { exportBackupFile, importBackup, wipeAllData } from '../lib/backup'
+import { wipeAllData } from '../lib/backup'
+import { shareBackup, importFromCode, ShareNotFoundError, type ShareResult } from '../lib/share'
 import { exportExcel } from '../lib/excel'
 import type { Instrument } from '../domain/types'
 
@@ -28,41 +29,15 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
 
 export function SettingsScreen() {
   const { show, node } = useToast()
-  const fileInput = useRef<HTMLInputElement>(null)
   const [pinOpen, setPinOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const { summary } = usePortfolio()
   const transactions = useLiveQuery(() => db.transactions.toArray())
   const instruments = useLiveQuery(() => db.instruments.toArray())
   const pinHash = useLiveQuery(() => getSetting<string | null>('pinHash', null))
   const theme = useLiveQuery(() => getSetting<ThemeMode>('theme', 'system'))
-
-  async function onBackup() {
-    try {
-      await exportBackupFile()
-    } catch {
-      show('Could not export backup.')
-    }
-  }
-
-  function onRestoreClick() {
-    fileInput.current?.click()
-  }
-
-  async function onRestoreFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    try {
-      const text = await file.text()
-      const r = await importBackup(text, 'replace')
-      show(
-        `Restored ${r.instruments} instruments, ${r.transactions} transactions, ${r.sips} SIPs.`,
-      )
-    } catch {
-      show('Not a valid My Funds backup.')
-    }
-  }
 
   async function onExcel() {
     if (!transactions || !instruments) return
@@ -103,23 +78,23 @@ export function SettingsScreen() {
         <div className="section">
           <div className="section-title">Data</div>
           <div className="list">
-            <button className="setting" type="button" onClick={onBackup}>
+            <button className="setting" type="button" onClick={() => setShareOpen(true)}>
               <span className="ic">
-                <Download size={18} />
+                <Share2 size={18} />
               </span>
               <span className="lbl">
-                <div className="t">Backup</div>
-                <div className="d">Export your data as JSON</div>
+                <div className="t">Share via key</div>
+                <div className="d">Get a key to copy your data to another device</div>
               </span>
             </button>
 
-            <button className="setting" type="button" onClick={onRestoreClick}>
+            <button className="setting" type="button" onClick={() => setImportOpen(true)}>
               <span className="ic">
-                <Upload size={18} />
+                <KeyRound size={18} />
               </span>
               <span className="lbl">
-                <div className="t">Restore</div>
-                <div className="d">Import a backup file</div>
+                <div className="t">Import from key</div>
+                <div className="d">Replace this device's data using a key</div>
               </span>
             </button>
 
@@ -213,7 +188,9 @@ export function SettingsScreen() {
           <div className="card">
             <div style={{ fontWeight: 800, fontSize: 16 }}>My Funds</div>
             <p className="help" style={{ marginTop: 8 }}>
-              All your data stays on this device — there is no account and nothing is uploaded.
+              Your data lives on this device. When you create a share key, a copy is uploaded to
+              our server in plain text so another device can import it. Keys stay valid for 30 days
+              and can be reused — share them only with people you trust.
             </p>
             <p className="help" style={{ marginTop: 6 }}>
               Data: mfapi.in (NAV) and Yahoo Finance (stocks).
@@ -221,14 +198,6 @@ export function SettingsScreen() {
           </div>
         </div>
       </div>
-
-      <input
-        ref={fileInput}
-        type="file"
-        accept="application/json"
-        style={{ display: 'none' }}
-        onChange={onRestoreFile}
-      />
 
       <PinSheet
         open={pinOpen}
@@ -239,6 +208,9 @@ export function SettingsScreen() {
           show(hasPin ? 'PIN changed.' : 'App lock enabled.')
         }}
       />
+
+      <ShareSheet open={shareOpen} onClose={() => setShareOpen(false)} show={show} />
+      <ImportSheet open={importOpen} onClose={() => setImportOpen(false)} show={show} />
 
       {node}
     </>
@@ -330,6 +302,192 @@ function PinSheet({
         </button>
         <button className="btn primary" type="button" onClick={onNext} disabled={value.length !== 4}>
           {step === 'enter' ? 'Next' : 'Save'}
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+function ShareSheet({
+  open,
+  onClose,
+  show,
+}: {
+  open: boolean
+  onClose: () => void
+  show: (m: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<ShareResult | null>(null)
+  const [error, setError] = useState('')
+
+  // Generate a fresh key each time the sheet opens.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setResult(null)
+    setError('')
+    setLoading(true)
+    void (async () => {
+      try {
+        const r = await shareBackup()
+        if (!cancelled) setResult(r)
+      } catch {
+        if (!cancelled) setError('Could not create a share key. Check your connection and try again.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  async function onCopy() {
+    if (!result) return
+    try {
+      await navigator.clipboard.writeText(result.code)
+      show('Key copied.')
+    } catch {
+      show('Could not copy. Select the key and copy it manually.')
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Share via key">
+      {loading ? (
+        <div className="center" style={{ padding: 24 }}>
+          <Spinner />
+        </div>
+      ) : error ? (
+        <div className="field">
+          <div className="help" style={{ color: 'var(--neg)' }}>
+            {error}
+          </div>
+          <div className="btn-row">
+            <button className="btn ghost" type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      ) : result ? (
+        <>
+          <div className="field">
+            <label>Your key</label>
+            <div
+              className="input tnum"
+              style={{ userSelect: 'all', wordBreak: 'break-all', fontFamily: 'monospace' }}
+            >
+              {result.code}
+            </div>
+            <div className="help">
+              Enter this key on another device under "Import from key". It stays valid for 30 days
+              and can be used more than once. Anyone with this key can read your data, so share it
+              only with people you trust.
+            </div>
+          </div>
+          <div className="btn-row">
+            <button className="btn ghost" type="button" onClick={onClose}>
+              Done
+            </button>
+            <button className="btn primary" type="button" onClick={onCopy}>
+              <ClipboardCopy size={16} /> Copy key
+            </button>
+          </div>
+        </>
+      ) : null}
+    </Sheet>
+  )
+}
+
+function ImportSheet({
+  open,
+  onClose,
+  show,
+}: {
+  open: boolean
+  onClose: () => void
+  show: (m: string) => void
+}) {
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  function close() {
+    setCode('')
+    setError('')
+    setBusy(false)
+    onClose()
+  }
+
+  async function onImport() {
+    if (!code.trim()) {
+      setError('Enter a key.')
+      return
+    }
+    if (
+      !window.confirm(
+        'This will ERASE everything on this device and replace it with the shared data. This cannot be undone. Continue?',
+      )
+    ) {
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const r = await importFromCode(code)
+      show(`Imported ${r.instruments} instruments, ${r.transactions} transactions, ${r.sips} SIPs.`)
+      // Full reload so the app re-bootstraps cleanly: re-hydrate prices, re-run due SIPs,
+      // and refresh quotes for exactly the imported instruments.
+      setTimeout(() => window.location.reload(), 600)
+    } catch (e) {
+      setBusy(false)
+      if (e instanceof ShareNotFoundError) {
+        setError('That key was not found. It may have expired.')
+      } else {
+        setError('Could not import. Check your connection and the key, then try again.')
+      }
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={close} title="Import from key">
+      <div className="field">
+        <label>Enter the key</label>
+        <input
+          className="input"
+          type="text"
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={code}
+          onChange={(e) => {
+            setCode(e.target.value)
+            setError('')
+          }}
+          placeholder="Paste your key"
+        />
+        {error ? (
+          <div className="help" style={{ color: 'var(--neg)' }}>
+            {error}
+          </div>
+        ) : (
+          <div className="help">This replaces all data on this device with the shared data.</div>
+        )}
+      </div>
+
+      <div className="btn-row">
+        <button className="btn ghost" type="button" onClick={close} disabled={busy}>
+          Cancel
+        </button>
+        <button
+          className="btn primary"
+          type="button"
+          onClick={onImport}
+          disabled={busy || !code.trim()}
+        >
+          {busy ? <Spinner /> : 'Import'}
         </button>
       </div>
     </Sheet>

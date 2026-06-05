@@ -1,8 +1,19 @@
 import type { Holding } from '../domain/types'
+import type { ReturnMode } from '../hooks/useReturnMode'
 import { InstrumentAvatar } from './InstrumentAvatar'
-import { formatINR, formatPct, formatUnits, sign } from '../lib/format'
+import { formatINR, formatPct, formatSignedINR, formatUnits, sign } from '../lib/format'
 
-export function HoldingRow({ holding, onClick }: { holding: Holding; onClick?: () => void }) {
+export function HoldingRow({
+  holding,
+  onClick,
+  mode = 'xirr',
+  onToggleMode,
+}: {
+  holding: Holding
+  onClick?: () => void
+  mode?: ReturnMode
+  onToggleMode?: () => void
+}) {
   const h = holding
   const unitLabel = h.instrument.type === 'mf' ? 'units' : 'qty'
   return (
@@ -16,9 +27,32 @@ export function HoldingRow({ holding, onClick }: { holding: Holding; onClick?: (
       </div>
       <div className="end">
         <div className="v">{h.hasPrice ? formatINR(h.currentValue, 0) : '—'}</div>
-        <div className={`s delta ${sign(h.pnl)}`}>
-          {h.hasPrice ? formatPct(h.pnlPct) : 'No price'}
-        </div>
+        {h.hasPrice ? (
+          <span
+            className={`s pill ${sign(h.pnl)}`}
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleMode?.()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleMode?.()
+              }
+            }}
+          >
+            {mode === 'absolute'
+              ? formatSignedINR(h.pnl, 0)
+              : h.xirr != null
+                ? formatPct(h.xirr)
+                : '—'}
+          </span>
+        ) : (
+          <div className="s delta zero">No price</div>
+        )}
       </div>
     </button>
   )

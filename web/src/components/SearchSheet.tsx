@@ -49,7 +49,7 @@ export function SearchSheet({
         setResults(r)
         setLoading(false)
       }
-    }, 300)
+    }, 150)
     return () => clearTimeout(timer)
   }, [q, type, open])
 
@@ -91,7 +91,7 @@ export function SearchSheet({
           results.map((r) => (
             <button
               key={r.id}
-              className="row tap"
+              className="row tap search-row"
               type="button"
               style={{ width: '100%', textAlign: 'left' }}
               onClick={() => onPick(r)}

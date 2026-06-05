@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import app from './app.js'
+import { warmMaster } from './providers/mfapi.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -24,4 +25,6 @@ if (existsSync(webDist)) {
 const PORT = Number(process.env.PORT || 8787)
 app.listen(PORT, () => {
   console.log(`[my-funds] market-data proxy listening on http://localhost:${PORT}`)
+  // Preload the MF master list so the first fund search is instant (fire-and-forget).
+  void warmMaster()
 })

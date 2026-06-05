@@ -48,6 +48,15 @@ export function computeHolding(
   const dayChange = hasPrice ? units * (p - prev) : 0
   const prevValue = currentValue - dayChange
 
+  // Per-holding XIRR: this holding's own buys/sells + current value as a final inflow.
+  // Same cash-flow convention as computePortfolio (buy negative, sell/value positive).
+  const flows: CashFlow[] = sorted.map((t) => {
+    const gross = t.units * t.price
+    return { date: new Date(t.date), amount: t.kind === 'buy' ? -(gross + t.fees) : gross - t.fees }
+  })
+  if (hasPrice && currentValue > 0) flows.push({ date: new Date(), amount: currentValue })
+  const rate = xirr(flows)
+
   return {
     instrument,
     units,
@@ -61,6 +70,7 @@ export function computeHolding(
     dayChange,
     dayChangePct: prevValue > 0 ? (dayChange / prevValue) * 100 : 0,
     realizedPnl: realized,
+    xirr: rate != null ? rate * 100 : null,
     priceAsOf: price?.asOf,
     hasPrice,
   }

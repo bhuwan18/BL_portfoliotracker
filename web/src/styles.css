@@ -358,6 +358,18 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Search results: let long fund names wrap to two lines instead of cropping,
+   so users can tell variants (e.g. "Direct Plan Growth" vs "IDCW") apart. */
+.row.search-row {
+  align-items: flex-start;
+}
+.row.search-row .title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .row .end {
   text-align: right;
   flex: none;
@@ -371,6 +383,10 @@ a {
   font-size: 12.5px;
   margin-top: 3px;
   font-variant-numeric: tabular-nums;
+}
+/* Tappable return pill (toggles XIRR ⇄ absolute gain/loss) */
+.row .end .pill {
+  cursor: pointer;
 }
 
 /* ---------- Avatar ---------- */

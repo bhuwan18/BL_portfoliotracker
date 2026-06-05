@@ -78,6 +78,7 @@ export interface Holding {
   dayChange: number // units * (price - prevClose)
   dayChangePct: number
   realizedPnl: number
+  xirr: number | null // annualized return %, null if not computable
   priceAsOf?: number
   hasPrice: boolean
 }

@@ -8,12 +8,20 @@ router.get('/search', async (req, res) => {
   const q = String(req.query.q || '').trim()
   if (q.length < 1) return res.json([])
   try {
+    // Fuzzy search over the locally-cached master list. Only successful results are
+    // cached — if the master index can't be built yet (e.g. cold start / mfapi
+    // unreachable) this throws, and we fall back to the literal upstream search
+    // *uncached*, so the next identical query retries once the index is warm.
     const results = await cache.getOrFetch(`mf:search:${q.toLowerCase()}`, TTL.search, () =>
-      mfapi.search(q),
+      mfapi.searchMaster(q),
     )
     res.json(results)
   } catch {
-    res.json([])
+    try {
+      res.json(await mfapi.search(q))
+    } catch {
+      res.json([])
+    }
   }
 })
 

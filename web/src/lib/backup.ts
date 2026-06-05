@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { db } from '../db'
 import type { Instrument, Setting, Sip, Transaction, WatchItem } from '../domain/types'
 
@@ -39,23 +38,6 @@ export async function buildBackup(): Promise<BackupPayload> {
   }
 }
 
-export function downloadText(filename: string, text: string, mime = 'application/json'): void {
-  const blob = new Blob([text], { type: mime })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 2000)
-}
-
-export async function exportBackupFile(): Promise<void> {
-  const payload = await buildBackup()
-  downloadText(`my-funds-backup-${dayjs().format('YYYY-MM-DD')}.json`, JSON.stringify(payload, null, 2))
-}
-
 export interface ImportResult {
   instruments: number
   transactions: number
@@ -63,12 +45,24 @@ export interface ImportResult {
   watchlist: number
 }
 
-export async function importBackup(json: string, mode: 'replace' | 'merge'): Promise<ImportResult> {
+// Validates and parses a backup JSON string into a typed payload. Throws on anything
+// that isn't a recognizable My Funds backup.
+export function parseBackup(json: string): BackupPayload {
   const parsed = JSON.parse(json) as BackupPayload
   if (parsed?.app !== 'my-funds' || !parsed.data) {
-    throw new Error('Not a valid My Funds backup file.')
+    throw new Error('Not a valid My Funds backup.')
   }
-  const { instruments, transactions, sips, watchlist, settings } = parsed.data
+  return parsed
+}
+
+// Writes a backup payload into IndexedDB. In 'replace' mode the four data tables are
+// cleared first (the price cache is left to refresh on next load). pinHash is always
+// filtered out so an imported backup never carries a lock onto this device.
+export async function applyBackup(
+  payload: BackupPayload,
+  mode: 'replace' | 'merge',
+): Promise<ImportResult> {
+  const { instruments, transactions, sips, watchlist, settings } = payload.data
   await db.transaction('rw', [db.instruments, db.transactions, db.sips, db.watchlist, db.settings], async () => {
     if (mode === 'replace') {
       await Promise.all([
