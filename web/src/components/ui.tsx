@@ -154,6 +154,10 @@ export function useToast() {
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => setMsg(null), 2400)
   }, [])
-  const node = msg ? <div className="toast">{msg}</div> : null
+  const node = msg ? (
+    <div className="toast" role="status" aria-live="polite">
+      {msg}
+    </div>
+  ) : null
   return { show, node }
 }

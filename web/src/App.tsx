@@ -43,7 +43,7 @@ export default function App() {
   // Wait until we know whether a PIN is set, to avoid flashing the app behind the lock.
   if (pinHash === undefined) {
     return (
-      <div className="center" style={{ minHeight: '100vh' }}>
+      <div className="center" style={{ minHeight: '100dvh' }}>
         <span className="spinner" />
       </div>
     )

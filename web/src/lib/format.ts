@@ -41,6 +41,14 @@ export function formatNumber(n: number, decimals = 2): string {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: decimals }).format(n)
 }
 
+// Like formatNumber but with an explicit +/− sign, so a positive value carries a
+// non-colour cue (WCAG: don't rely on colour alone) on coloured P&L badges.
+export function formatSignedNumber(n: number, decimals = 2): string {
+  if (!Number.isFinite(n)) return '0'
+  const s = n > 0 ? '+' : n < 0 ? '−' : ''
+  return `${s}${formatNumber(Math.abs(n), decimals)}`
+}
+
 export function formatUnits(n: number): string {
   if (!Number.isFinite(n)) return '0'
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 }).format(n)

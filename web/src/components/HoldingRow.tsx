@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import type { Holding } from '../domain/types'
 import type { ReturnMode } from '../hooks/useReturnMode'
-import { formatNumber, formatPct, formatDateShort, sign } from '../lib/format'
+import { formatNumber, formatPct, formatSignedNumber, formatDateShort, sign } from '../lib/format'
 
 export function HoldingRow({
   holding,
@@ -57,7 +57,7 @@ export function HoldingRow({
               }}
             >
               {mode === 'absolute'
-                ? formatNumber(h.pnl, 0)
+                ? formatSignedNumber(h.pnl, 0)
                 : h.xirr != null
                   ? formatPct(h.xirr)
                   : '—'}

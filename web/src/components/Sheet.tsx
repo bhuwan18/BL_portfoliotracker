@@ -1,5 +1,8 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 export function Sheet({
   open,
@@ -19,14 +22,24 @@ export function Sheet({
   // scrim to the visual viewport keeps the sheet (and its focused input)
   // visible just above the keyboard.
   const [vv, setVv] = useState<{ top: number; height: number } | null>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => {
+    // Remember what had focus so we can restore it when the sheet closes
+    // (keeps keyboard/screen-reader users anchored to the triggering control).
+    const prevFocus = document.activeElement as HTMLElement | null
+
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
+
+    // Move focus into the dialog itself (not the first input) so the modal
+    // captures screen-reader focus without popping the keyboard on open.
+    sheetRef.current?.focus()
 
     const viewport = window.visualViewport
     const sync = () => {
@@ -41,10 +54,35 @@ export function Sheet({
       document.body.style.overflow = ''
       viewport?.removeEventListener('resize', sync)
       viewport?.removeEventListener('scroll', sync)
+      prevFocus?.focus?.()
     }
   }, [open, onClose])
 
   if (!open) return null
+
+  // Keep Tab focus cycling within the sheet while it's open (focus trap).
+  const onTrapKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return
+    const root = sheetRef.current
+    if (!root) return
+    const items = root.querySelectorAll<HTMLElement>(FOCUSABLE)
+    if (items.length === 0) {
+      e.preventDefault()
+      return
+    }
+    const first = items[0]
+    const last = items[items.length - 1]
+    const active = document.activeElement
+    if (e.shiftKey) {
+      if (active === first || active === root) {
+        e.preventDefault()
+        last.focus()
+      }
+    } else if (active === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 
   // Pin the scrim to the visible region (above the keyboard). Falls back to the
   // full-viewport `inset: 0` from CSS when the API is unavailable (e.g. desktop).
@@ -54,11 +92,20 @@ export function Sheet({
 
   return (
     <div className="scrim" style={scrimStyle} onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={sheetRef}
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title !== undefined ? titleId : undefined}
+        tabIndex={-1}
+        onKeyDown={onTrapKey}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="grabber" />
         {title !== undefined && (
           <div className="sheet-head">
-            <h3>{title}</h3>
+            <h3 id={titleId}>{title}</h3>
             <button className="icon-btn" type="button" aria-label="Close" onClick={onClose}>
               <X size={20} />
             </button>

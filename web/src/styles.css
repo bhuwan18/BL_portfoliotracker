@@ -13,6 +13,12 @@
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Solid gain/loss badge fills — theme-independent so white badge text always
+     clears AA (the --pos/--neg text tokens must stay bright on dark surfaces,
+     which is the opposite contrast need from a white-on-fill badge). */
+  --badge-pos-bg: #0b7a4b;
+  --badge-neg-bg: #d12626;
+  --badge-zero-bg: #5a6b85;
 }
 
 :root[data-theme='dark'] {
@@ -25,7 +31,7 @@
   --elevated: #1d2842;
   --text: #f1f5f9;
   --text-dim: #9aa7bd;
-  --text-faint: #647089;
+  --text-faint: #8794ad;
   --border: #26324c;
   --border-soft: #1d2840;
   --accent: #16c784;
@@ -35,7 +41,6 @@
   --neg: #f0616d;
   --neg-soft: rgba(240, 97, 109, 0.14);
   --pos-soft: rgba(22, 199, 132, 0.14);
-  --warn: #f5b53d;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --chip: #1c2740;
   color-scheme: dark;
@@ -51,17 +56,16 @@
   --elevated: #ffffff;
   --text: #0f1b2d;
   --text-dim: #5a6b85;
-  --text-faint: #8a98ad;
+  --text-faint: #5f6d85;
   --border: #e3e9f2;
   --border-soft: #eef2f8;
-  --accent: #0c9f6e;
+  --accent: #0b7a4b;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(12, 159, 110, 0.12);
-  --pos: #0c9f6e;
-  --neg: #e02424;
-  --neg-soft: rgba(224, 36, 36, 0.1);
-  --pos-soft: rgba(12, 159, 110, 0.1);
-  --warn: #d98a00;
+  --accent-soft: rgba(11, 122, 75, 0.12);
+  --pos: #0b7a4b;
+  --neg: #d11f1f;
+  --neg-soft: rgba(209, 31, 31, 0.1);
+  --pos-soft: rgba(11, 122, 75, 0.1);
   --shadow: 0 8px 24px rgba(15, 27, 45, 0.1);
   --chip: #eef2f8;
   color-scheme: light;
@@ -83,6 +87,7 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
@@ -93,6 +98,17 @@ button {
   border: none;
   background: none;
   color: inherit;
+}
+
+/* Global keyboard focus ring — shows for keyboard nav only (not mouse/touch).
+   Inputs need their own rule because `.input { outline: none }` is set later. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 input,
@@ -119,6 +135,7 @@ a {
 .app-main {
   padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 24px);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .screen {
@@ -180,8 +197,8 @@ a {
 }
 
 .icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -383,6 +400,11 @@ a {
   transform: scale(0.99);
   background: var(--surface-2);
 }
+/* Visible keyboard focus for tappable rows acting as buttons (role="button"). */
+.row.tap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .row .main {
   flex: 1;
   min-width: 0;
@@ -491,8 +513,11 @@ a {
 .row.txn-row .end .s {
   margin-top: 0;
 }
-.row.txn-row .txn-del {
+/* Trailing affordance: signals the row opens the edit sheet on tap. */
+.txn-chevron {
+  flex: none;
   align-self: center;
+  color: var(--text-faint);
 }
 /* Solid colour-filled gain/loss chip, matching the reference app. */
 .gain-badge {
@@ -506,13 +531,13 @@ a {
   font-variant-numeric: tabular-nums;
 }
 .gain-badge.pos {
-  background: var(--pos);
+  background: var(--badge-pos-bg);
 }
 .gain-badge.neg {
-  background: var(--neg);
+  background: var(--badge-neg-bg);
 }
 .gain-badge.zero {
-  background: var(--text-dim);
+  background: var(--badge-zero-bg);
 }
 
 /* ---------- Holding card (rich row, Portfolio + Holdings) ---------- */
@@ -669,11 +694,14 @@ a {
 /* Small pill-shaped inline action (e.g. "Change") */
 .chip-btn {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-size: 13px;
   font-weight: 600;
   color: var(--accent);
   background: var(--accent-soft);
-  padding: 8px 14px;
+  padding: 8px 16px;
   border-radius: 999px;
   transition: transform 0.05s;
 }
@@ -691,7 +719,7 @@ a {
 }
 .segmented button {
   flex: 1;
-  height: 36px;
+  height: 44px;
   border-radius: 9px;
   font-weight: 700;
   font-size: 13.5px;
@@ -754,8 +782,17 @@ textarea.input {
 }
 .help {
   font-size: 12px;
+  line-height: 1.5;
   color: var(--text-faint);
   margin-top: 6px;
+}
+/* Inline field error (shown on blur when a value is missing/invalid). */
+.help.err {
+  color: var(--neg);
+  font-weight: 600;
+}
+.input[aria-invalid='true'] {
+  border-color: var(--neg);
 }
 
 /* Order/total summary card (accent-tinted) */
@@ -788,6 +825,20 @@ textarea.input {
   letter-spacing: -0.01em;
   color: var(--accent);
   white-space: nowrap;
+}
+
+/* Destructive zone in sheets — divided + spaced from the primary action so the
+   delete control reads as separate and isn't a mis-tap target under Save. */
+.sheet-danger {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+.sheet-danger .danger-prompt {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 12px;
 }
 
 /* ---------- Tab bar ---------- */
@@ -916,7 +967,7 @@ textarea.input {
 }
 .range-row button {
   flex: 1;
-  height: 32px;
+  height: 44px;
   border-radius: 9px;
   font-size: 12.5px;
   font-weight: 700;
@@ -1055,6 +1106,12 @@ textarea.input {
 .switch.on {
   background: var(--accent);
 }
+/* Extend the tap area to ~44px tall without enlarging the visual track. */
+.switch::before {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
+}
 .switch::after {
   content: '';
   position: absolute;
@@ -1109,6 +1166,7 @@ textarea.input {
 /* ---------- Lock screen ---------- */
 .lock {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1212,4 +1270,20 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* ---------- Reduced motion ----------
+   Honour the OS "reduce motion" setting: neutralise decorative entrance/press
+   motion (sheet slide-up, scrim fade, PIN shake, press scale). Functional
+   loading indicators (.spinner, .skeleton) keep animating so state stays
+   legible. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.spinner):not(.skeleton),
+  *:not(.spinner):not(.skeleton)::before,
+  *:not(.spinner):not(.skeleton)::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

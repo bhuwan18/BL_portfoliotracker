@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Plus, Star, Trash2 } from 'lucide-react'
+import { ChevronRight, Plus, Star, Trash2 } from 'lucide-react'
 import { AppBar, Delta, EmptyState, Pill } from '../components/ui'
 import { PriceChart } from '../components/PriceChart'
 import { InstrumentAvatar } from '../components/InstrumentAvatar'
+import { EditTransactionSheet } from '../components/EditTransactionSheet'
 import { useHolding, useInstrument, useInstrumentTxns } from '../hooks/usePortfolio'
 import { useMarket } from '../store/market'
 import { db } from '../db'
@@ -18,7 +19,8 @@ import {
 } from '../db/repo'
 import { CHART_RANGES, fetchHistory, type ChartRange } from '../api/instrument'
 import { FREQUENCY_LABEL, nextDueDate } from '../domain/sip'
-import { formatDate, formatDateShort, formatINR, formatNumber, formatUnits, sign } from '../lib/format'
+import type { Transaction } from '../domain/types'
+import { formatDate, formatDateShort, formatINR, formatNumber, formatSignedNumber, formatUnits, sign } from '../lib/format'
 
 export function InstrumentDetailScreen() {
   const navigate = useNavigate()
@@ -38,6 +40,7 @@ export function InstrumentDetailScreen() {
   const [range, setRange] = useState<ChartRange>('1y')
   const [points, setPoints] = useState<{ t: number; close: number }[]>([])
   const [chartLoading, setChartLoading] = useState(true)
+  const [editing, setEditing] = useState<Transaction | null>(null)
 
   // Refresh the live price once the instrument is known.
   useEffect(() => {
@@ -264,7 +267,20 @@ export function InstrumentDetailScreen() {
               // Per-lot performance only makes sense for held buy lots with a live price.
               const showPerf = hasPrice && t.kind === 'buy'
               return (
-                <div key={t.id} className="row txn-row">
+                <div
+                  key={t.id}
+                  className="row tap txn-row"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Edit transaction ${formatDate(t.date)}`}
+                  onClick={() => setEditing(t)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setEditing(t)
+                    }
+                  }}
+                >
                   <div className="main">
                     <div className="title">
                       {formatDate(t.date)}
@@ -283,7 +299,7 @@ export function InstrumentDetailScreen() {
                   <div className="end">
                     {showPerf ? (
                       <>
-                        <span className={`gain-badge ${sign(gain)}`}>{formatNumber(gain, 0)}</span>
+                        <span className={`gain-badge ${sign(gain)}`}>{formatSignedNumber(gain, 0)}</span>
                         <div className="v">{formatNumber(currentVal, 0)}</div>
                         <div className="s faint">{formatNumber(amount, 0)}</div>
                       </>
@@ -291,14 +307,7 @@ export function InstrumentDetailScreen() {
                       <div className="v">{formatNumber(amount, 0)}</div>
                     )}
                   </div>
-                  <button
-                    className="icon-btn txn-del"
-                    type="button"
-                    aria-label="Delete transaction"
-                    onClick={() => void removeTxn(t.id)}
-                  >
-                    <Trash2 size={17} />
-                  </button>
+                  <ChevronRight size={16} className="txn-chevron" aria-hidden="true" />
                 </div>
               )
             })}
@@ -314,6 +323,13 @@ export function InstrumentDetailScreen() {
           <Plus size={18} /> Add transaction
         </button>
       </div>
+
+      <EditTransactionSheet
+        txn={editing}
+        instrument={instrument}
+        onClose={() => setEditing(null)}
+        onDelete={removeTxn}
+      />
     </>
   )
 }
