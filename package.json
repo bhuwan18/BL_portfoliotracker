@@ -2,6 +2,7 @@
   "name": "my-funds-tracker",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "description": "My Funds clone — Indian stock & mutual fund portfolio tracker (mobile PWA)",
   "workspaces": [
     "web",
