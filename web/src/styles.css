@@ -244,7 +244,10 @@ a {
   margin: 2px 0 2px;
   line-height: 1.05;
 }
-.hero .row {
+/* Pill row under the hero value. Has its own class (not the generic list `.row`),
+   which would otherwise paint a white --surface card + border behind the pills —
+   invisible white-on-white in light mode. */
+.hero-pills {
   display: flex;
   align-items: center;
   gap: 8px;

@@ -96,7 +96,7 @@ function Hero({
     <div className="hero">
       <div className="label">Current value</div>
       <div className="value tnum">{formatINR(summary.currentValue, 0)}</div>
-      <div className="row">
+      <div className="hero-pills">
         <span className="pill">
           Today {summary.dayChange >= 0 ? '▲' : '▼'} {formatINR(Math.abs(summary.dayChange), 0)} (
           {formatPct(summary.dayChangePct, false)})
