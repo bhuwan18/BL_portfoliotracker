@@ -1,0 +1,25 @@
+{
+  "name": "my-funds-tracker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "My Funds clone — Indian stock & mutual fund portfolio tracker (mobile PWA)",
+  "workspaces": [
+    "web",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:web": "npm -w web run dev",
+    "dev:api": "npm -w server run dev",
+    "build": "npm -w web run build",
+    "start": "npm -w server run start",
+    "typecheck": "npm -w server run typecheck && npm -w web run typecheck"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
