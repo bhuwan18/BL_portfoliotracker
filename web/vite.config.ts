@@ -32,6 +32,16 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {
+            // Search is interactive and useless offline. Never cache it: a single
+            // empty `[]` response (proxy not up yet, a transient Yahoo 429, an old
+            // build) would otherwise get cached for a day and served stale by the
+            // NetworkFirst rule below, making the autocomplete show "No matches"
+            // long after the backend recovered. Must precede the generic /api/ rule.
+            urlPattern: ({ url }) =>
+              url.pathname === '/api/stocks/search' || url.pathname === '/api/mf/search',
+            handler: 'NetworkOnly',
+          },
+          {
             // Mutual fund NAV data (called browser-direct, CORS-open)
             urlPattern: ({ url }) => url.hostname === 'api.mfapi.in',
             handler: 'StaleWhileRevalidate',
@@ -42,7 +52,7 @@ export default defineConfig({
             },
           },
           {
-            // Our stock proxy
+            // Our stock proxy (quotes & history — cached for offline price display)
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkFirst',
             options: {
