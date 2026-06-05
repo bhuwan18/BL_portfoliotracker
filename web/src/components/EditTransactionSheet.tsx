@@ -13,8 +13,8 @@ function num(s: string): number {
 }
 
 // Bottom-sheet editor for an existing transaction. Open when `txn` is non-null.
-// Edits date / type / units / price / fees / notes in place via updateTransaction;
-// the instrument and any sipId are left untouched (portfolio math recomputes).
+// Edits date / type / units / price in place via updateTransaction; the instrument,
+// fees, notes, and any sipId are left untouched (portfolio math recomputes).
 export function EditTransactionSheet({
   txn,
   instrument,
@@ -33,8 +33,6 @@ export function EditTransactionSheet({
   const [date, setDate] = useState(todayISO())
   const [units, setUnits] = useState('')
   const [price, setPrice] = useState('')
-  const [fees, setFees] = useState('')
-  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   // Inline-validation: only surface an error once the user has left the field.
@@ -49,8 +47,6 @@ export function EditTransactionSheet({
     setDate(txn.date)
     setUnits(String(txn.units))
     setPrice(String(txn.price))
-    setFees(txn.fees ? String(txn.fees) : '')
-    setNotes(txn.notes ?? '')
     setSaving(false)
     setDeleting(false)
     setTouched({})
@@ -59,8 +55,6 @@ export function EditTransactionSheet({
 
   const unitsVal = num(units)
   const priceVal = num(price)
-  const feesVal = fees.trim() === '' ? 0 : num(fees)
-  const feesClean = Number.isFinite(feesVal) ? feesVal : 0
   const validUnits = Number.isFinite(unitsVal) && unitsVal > 0
   const validPrice = Number.isFinite(priceVal) && priceVal > 0
   const canSave = !!txn && !saving && validUnits && validPrice
@@ -68,7 +62,7 @@ export function EditTransactionSheet({
   const showUnitsErr = !!touched.units && !validUnits
   const showPriceErr = !!touched.price && !validPrice
 
-  const total = validUnits && validPrice ? unitsVal * priceVal + feesClean : NaN
+  const total = validUnits && validPrice ? unitsVal * priceVal : NaN
   const priceLabel = isMf ? 'NAV' : 'Price'
   const qtyLabel = isMf ? 'Units' : 'Qty'
 
@@ -78,9 +72,7 @@ export function EditTransactionSheet({
     (kind !== txn.kind ||
       date !== txn.date ||
       units !== String(txn.units) ||
-      price !== String(txn.price) ||
-      fees !== (txn.fees ? String(txn.fees) : '') ||
-      notes !== (txn.notes ?? ''))
+      price !== String(txn.price))
 
   // Guard the scrim/X/Escape dismiss paths against losing unsaved edits.
   function requestClose() {
@@ -93,14 +85,13 @@ export function EditTransactionSheet({
     if (!txn || !validUnits || !validPrice) return
     setSaving(true)
     try {
+      // fees / notes (incl. SIP labels) and sipId are intentionally omitted so
+      // Dexie's shallow update leaves any existing values untouched.
       await updateTransaction(txn.id, {
         kind,
         date,
         units: unitsVal,
         price: priceVal,
-        fees: feesClean,
-        // undefined clears the property in Dexie's shallow update.
-        notes: notes.trim() || undefined,
       })
       onClose()
     } catch {
@@ -124,7 +115,7 @@ export function EditTransactionSheet({
 
   return (
     <>
-      <Sheet open={!!txn} onClose={requestClose} title="Edit transaction">
+      <Sheet open={!!txn} onClose={requestClose} title="Edit transaction" bodyClassName="txn-form">
         <div className="field">
           <label>Type</label>
           <SegmentedControl
@@ -193,40 +184,13 @@ export function EditTransactionSheet({
           )}
         </div>
 
-        <div className="field">
-          <label htmlFor="edit-fees">Fees (optional)</label>
-          <div className="input-prefix">
-            <span className="pfx">₹</span>
-            <input
-              id="edit-fees"
-              className="input"
-              inputMode="decimal"
-              placeholder="0"
-              value={fees}
-              onChange={(e) => setFees(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor="edit-notes">Notes (optional)</label>
-          <textarea
-            id="edit-notes"
-            className="input"
-            placeholder="Add a note…"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-
-        <div className="card summary-card" style={{ marginBottom: 16 }}>
+        <div className="card summary-card" style={{ marginBottom: 12 }}>
           <div className="summary-row">
             <div className="summary-info">
               <div className="summary-label">{kind === 'buy' ? 'Total cost' : 'Total proceeds'}</div>
               <div className="summary-sub">
                 {validUnits ? formatUnits(unitsVal) : '—'} units
                 {validPrice ? ` × ${formatINR(priceVal)}` : ''}
-                {feesClean > 0 ? ` + ${formatINR(feesClean)} fees` : ''}
               </div>
             </div>
             <div className="summary-total tnum">{Number.isFinite(total) ? formatINR(total) : '—'}</div>

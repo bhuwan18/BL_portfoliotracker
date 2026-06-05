@@ -48,8 +48,6 @@ export function AddTransactionScreen() {
   const [amount, setAmount] = useState('')
   const [unitsInput, setUnitsInput] = useState('')
   const [price, setPrice] = useState('')
-  const [fees, setFees] = useState('')
-  const [notes, setNotes] = useState('')
   const [frequency, setFrequency] = useState<SipFrequency>('monthly')
   const [pricing, setPricing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -117,7 +115,6 @@ export function AddTransactionScreen() {
   }
 
   const priceVal = num(price)
-  const feesVal = fees.trim() === '' ? 0 : num(fees)
   const amountVal = num(amount)
 
   // Derive units from the active entry mode.
@@ -128,7 +125,6 @@ export function AddTransactionScreen() {
         : NaN
       : num(unitsInput)
 
-  const feesClean = Number.isFinite(feesVal) ? feesVal : 0
   const validUnits = Number.isFinite(computedUnits) && computedUnits > 0
   const validPrice = Number.isFinite(priceVal) && priceVal > 0
   const validAmount = Number.isFinite(amountVal) && amountVal > 0
@@ -137,7 +133,7 @@ export function AddTransactionScreen() {
     !saving &&
     (isSip ? validAmount && date.length > 0 : validUnits && validPrice)
 
-  const total = validUnits && validPrice ? computedUnits * priceVal + feesClean : NaN
+  const total = validUnits && validPrice ? computedUnits * priceVal : NaN
   const priceLabel = isMf ? 'NAV' : 'Price'
 
   async function handleSave() {
@@ -165,8 +161,6 @@ export function AddTransactionScreen() {
         date,
         units: computedUnits,
         price: priceVal,
-        fees: feesClean,
-        notes: notes.trim() || undefined,
       })
       navigate(-1)
     } catch {
@@ -179,7 +173,7 @@ export function AddTransactionScreen() {
     <>
       <AppBar title="Add transaction" back={true} />
 
-      <div className="screen section">
+      <div className="screen section txn-form">
         <div className="field">
           <label>Instrument</label>
           {instrument ? (
@@ -267,7 +261,7 @@ export function AddTransactionScreen() {
                   <SegmentedControl options={FREQ_OPTIONS} value={frequency} onChange={setFrequency} />
                 </div>
 
-                <div className="card summary-card" style={{ marginBottom: 16 }}>
+                <div className="card summary-card" style={{ marginBottom: 12 }}>
                   <div className="summary-row">
                     <div className="summary-info">
                       <div className="summary-label">SIP plan</div>
@@ -342,38 +336,13 @@ export function AddTransactionScreen() {
               </div>
             </div>
 
-            <div className="field">
-              <label>Fees (optional)</label>
-              <div className="input-prefix">
-                <span className="pfx">₹</span>
-                <input
-                  className="input"
-                  inputMode="decimal"
-                  placeholder="0"
-                  value={fees}
-                  onChange={(e) => setFees(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="field">
-              <label>Notes (optional)</label>
-              <textarea
-                className="input"
-                placeholder="Add a note…"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </div>
-
-            <div className="card summary-card" style={{ marginBottom: 16 }}>
+            <div className="card summary-card" style={{ marginBottom: 12 }}>
               <div className="summary-row">
                 <div className="summary-info">
                   <div className="summary-label">{kind === 'buy' ? 'Total cost' : 'Total proceeds'}</div>
                   <div className="summary-sub">
                     {validUnits ? formatUnits(computedUnits) : '—'} units
                     {validPrice ? ` × ${formatINR(priceVal)}` : ''}
-                    {feesClean > 0 ? ` + ${formatINR(feesClean)} fees` : ''}
                   </div>
                 </div>
                 <div className="summary-total tnum">{Number.isFinite(total) ? formatINR(total) : '—'}</div>

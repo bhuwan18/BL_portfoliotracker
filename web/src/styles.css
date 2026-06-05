@@ -795,6 +795,19 @@ textarea.input {
   border-color: var(--neg);
 }
 
+/* Compact transaction form (Add / Edit) — tighter rhythm so the whole form fits
+   one phone screen without scrolling. Scoped to .field/.input only, so other
+   screens and sheets keep the default spacing. */
+.txn-form .field {
+  margin-bottom: 12px;
+}
+.txn-form .field > label {
+  margin-bottom: 5px;
+}
+.txn-form .input {
+  height: 48px;
+}
+
 /* Order/total summary card (accent-tinted) */
 .summary-card {
   background: var(--accent-soft);

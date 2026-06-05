@@ -9,11 +9,13 @@ export function Sheet({
   onClose,
   title,
   children,
+  bodyClassName,
 }: {
   open: boolean
   onClose: () => void
   title?: ReactNode
   children: ReactNode
+  bodyClassName?: string
 }) {
   // Track the visual viewport so the sheet floats above the on-screen keyboard.
   // iOS shrinks the *visual* viewport when the keyboard opens but leaves the
@@ -111,7 +113,7 @@ export function Sheet({
             </button>
           </div>
         )}
-        <div className="sheet-body">{children}</div>
+        <div className={bodyClassName ? `sheet-body ${bodyClassName}` : 'sheet-body'}>{children}</div>
       </div>
     </div>
   )
