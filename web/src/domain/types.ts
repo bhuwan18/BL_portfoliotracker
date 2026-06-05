@@ -1,4 +1,4 @@
-// Core domain types. Instruments/transactions/sips/watchlist are persisted (Dexie);
+// Core domain types. Instruments/transactions/sips are persisted (Dexie);
 // Holding/PortfolioSummary are computed on the fly.
 
 export type InstrumentType = 'stock' | 'mf'
@@ -41,12 +41,6 @@ export interface Sip {
   active: boolean
   lastRun?: string // ISO date of the last materialized installment
   createdAt: number
-}
-
-export interface WatchItem {
-  id: string // = instrumentId
-  instrumentId: string
-  addedAt: number
 }
 
 export interface PriceSnapshot {

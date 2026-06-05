@@ -72,7 +72,7 @@ export function SettingsScreen() {
 
   return (
     <>
-      <AppBar title="Settings" subtitle="Backup, security & appearance" />
+      <AppBar title="Settings" subtitle="Backup, security & appearance" back />
 
       <div className="screen">
         <div className="section">

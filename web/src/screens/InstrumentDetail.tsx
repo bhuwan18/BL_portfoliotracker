@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight, Plus, Star, Trash2 } from 'lucide-react'
+import { ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { AppBar, Delta, EmptyState, Pill } from '../components/ui'
 import { PriceChart } from '../components/PriceChart'
 import { InstrumentAvatar } from '../components/InstrumentAvatar'
@@ -9,14 +9,7 @@ import { EditTransactionSheet } from '../components/EditTransactionSheet'
 import { useHolding, useInstrument, useInstrumentTxns } from '../hooks/usePortfolio'
 import { useMarket } from '../store/market'
 import { db } from '../db'
-import {
-  addToWatchlist,
-  deleteSip,
-  deleteTransaction,
-  pruneInstrument,
-  removeFromWatchlist,
-  setSipActive,
-} from '../db/repo'
+import { deleteSip, deleteTransaction, pruneInstrument, setSipActive } from '../db/repo'
 import { CHART_RANGES, fetchHistory, type ChartRange } from '../api/instrument'
 import { FREQUENCY_LABEL, nextDueDate } from '../domain/sip'
 import type { Transaction } from '../domain/types'
@@ -31,7 +24,6 @@ export function InstrumentDetailScreen() {
   const txns = useInstrumentTxns(id)
   const snapshot = useMarket((s) => s.prices[id])
   const refreshOne = useMarket((s) => s.refreshOne)
-  const watched = useLiveQuery(() => (id ? db.watchlist.get(id) : undefined), [id])
   const sips = useLiveQuery(
     () => (id ? db.sips.where('instrumentId').equals(id).toArray() : []),
     [id],
@@ -94,11 +86,6 @@ export function InstrumentDetailScreen() {
 
   const sortedTxns = [...txns].sort((a, b) => b.date.localeCompare(a.date))
 
-  async function toggleWatch() {
-    if (watched) await removeFromWatchlist(instrument!.id)
-    else await addToWatchlist(instrument!)
-  }
-
   async function removeTxn(txnId: string) {
     await deleteTransaction(txnId)
     await pruneInstrument(instrument!.id)
@@ -111,21 +98,7 @@ export function InstrumentDetailScreen() {
 
   return (
     <>
-      <AppBar
-        title={instrument.name}
-        subtitle={instrument.category}
-        back
-        right={
-          <button
-            className="icon-btn"
-            type="button"
-            aria-label={watched ? 'Remove from watchlist' : 'Add to watchlist'}
-            onClick={() => void toggleWatch()}
-          >
-            <Star size={19} fill={watched ? 'currentColor' : 'none'} />
-          </button>
-        }
-      />
+      <AppBar title={instrument.name} subtitle={instrument.category} back />
 
       <div className="screen section" style={{ marginTop: 6 }}>
         <div className="card">

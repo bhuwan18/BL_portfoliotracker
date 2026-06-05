@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Plus, RefreshCw, Wallet } from 'lucide-react'
+import { Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
 import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
 import { useMarket } from '../store/market'
@@ -22,14 +22,32 @@ export function PortfolioScreen() {
       <AppBar
         title="My Funds"
         right={
-          <button
-            className="icon-btn"
-            type="button"
-            aria-label="Refresh prices"
-            onClick={() => refresh(tracked)}
-          >
-            {refreshing ? <Spinner /> : <RefreshCw size={19} />}
-          </button>
+          <>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Refresh prices"
+              onClick={() => refresh(tracked)}
+            >
+              {refreshing ? <Spinner /> : <RefreshCw size={19} />}
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Add transaction"
+              onClick={() => navigate('/add')}
+            >
+              <Plus size={20} />
+            </button>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Settings"
+              onClick={() => navigate('/settings')}
+            >
+              <Settings size={19} />
+            </button>
+          </>
         }
       />
 
@@ -56,14 +74,9 @@ export function PortfolioScreen() {
           <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
 
           <div className="screen section">
-            <div className="section-title">
-              Holdings
-              <span className="link" onClick={() => navigate('/holdings')}>
-                See all
-              </span>
-            </div>
+            <div className="section-title">Holdings</div>
             <div className="list">
-              {summary.holdings.slice(0, 5).map((h) => (
+              {summary.holdings.map((h) => (
                 <HoldingRow
                   key={h.instrument.id}
                   holding={h}

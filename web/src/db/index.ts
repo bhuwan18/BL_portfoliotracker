@@ -1,12 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type {
-  Instrument,
-  PriceSnapshot,
-  Setting,
-  Sip,
-  Transaction,
-  WatchItem,
-} from '../domain/types'
+import type { Instrument, PriceSnapshot, Setting, Sip, Transaction } from '../domain/types'
 
 // IndexedDB store. Booleans can't be IndexedDB keys, so `sips.active` is not indexed
 // (filtered in JS instead). `prices` is a best-effort cache for offline display.
@@ -14,12 +7,12 @@ export class MyFundsDB extends Dexie {
   instruments!: Table<Instrument, string>
   transactions!: Table<Transaction, string>
   sips!: Table<Sip, string>
-  watchlist!: Table<WatchItem, string>
   prices!: Table<PriceSnapshot, string>
   settings!: Table<Setting, string>
 
   constructor() {
     super('my-funds')
+    // v1 shipped with a `watchlist` store; v2 drops it (the feature was removed).
     this.version(1).stores({
       instruments: 'id, type, name',
       transactions: 'id, instrumentId, date, sipId',
@@ -27,6 +20,9 @@ export class MyFundsDB extends Dexie {
       watchlist: 'id, instrumentId',
       prices: 'instrumentId, asOf',
       settings: 'key',
+    })
+    this.version(2).stores({
+      watchlist: null,
     })
   }
 }

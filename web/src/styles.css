@@ -4,7 +4,6 @@
 
 :root {
   --maxw: 480px;
-  --tabbar-h: 64px;
   --radius: 18px;
   --radius-sm: 12px;
   --radius-lg: 24px;
@@ -133,7 +132,7 @@ a {
 }
 
 .app-main {
-  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 24px);
+  padding-bottom: calc(var(--safe-bottom) + 24px);
   min-height: 100vh;
   min-height: 100dvh;
 }
@@ -857,59 +856,6 @@ textarea.input {
   margin-bottom: 12px;
 }
 
-/* ---------- Tab bar ---------- */
-.tabbar {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 0;
-  width: 100%;
-  max-width: var(--maxw);
-  height: calc(var(--tabbar-h) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
-  display: flex;
-  align-items: stretch;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border-soft);
-  z-index: 50;
-}
-.tabbar a {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  color: var(--text-faint);
-  font-size: 10.5px;
-  font-weight: 600;
-}
-.tabbar a.active {
-  color: var(--accent);
-}
-.tabbar .fab-wrap {
-  flex: 1;
-  position: relative;
-}
-.tabbar .fab {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  display: grid;
-  place-items: center;
-  box-shadow: 0 8px 20px var(--accent-soft), 0 6px 16px rgba(0, 0, 0, 0.25);
-}
-.tabbar .fab:active {
-  transform: translateX(-50%) scale(0.94);
-}
-
 /* ---------- Bottom sheet / modal ---------- */
 .scrim {
   position: fixed;
@@ -1087,7 +1033,7 @@ textarea.input {
 }
 .toast {
   position: fixed;
-  bottom: calc(var(--tabbar-h) + 24px);
+  bottom: calc(var(--safe-bottom) + 24px);
   left: 50%;
   transform: translateX(-50%);
   background: var(--text);
@@ -1102,13 +1048,6 @@ textarea.input {
   max-width: 90%;
   text-align: center;
 }
-.fab-bottom {
-  position: fixed;
-  right: max(16px, calc(50% - var(--maxw) / 2 + 16px));
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 16px);
-  z-index: 40;
-}
-
 /* ---------- Toggle switch ---------- */
 .switch {
   width: 46px;

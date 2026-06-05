@@ -78,18 +78,16 @@ export function useHolding(instrumentId: string | undefined): Holding | null {
   }, [instrument, txns, price])
 }
 
-// Instruments worth pricing: anything held or on the watchlist.
+// Instruments worth pricing: anything currently held.
 export function useTrackedInstruments(): Instrument[] {
   const instruments = useLiveQuery(() => db.instruments.toArray())
   const txns = useLiveQuery(() => db.transactions.toArray())
-  const watch = useLiveQuery(() => db.watchlist.toArray())
   return useMemo(() => {
     if (!instruments) return []
     const ids = new Set<string>()
     for (const t of txns ?? []) ids.add(t.instrumentId)
-    for (const w of watch ?? []) ids.add(w.instrumentId)
     return instruments.filter((i) => ids.has(i.id))
-  }, [instruments, txns, watch])
+  }, [instruments, txns])
 }
 
 // One-time bootstrap: hydrate cached prices, materialize due SIPs, then refresh quotes.

@@ -46,21 +46,10 @@ export async function deleteTransaction(id: string): Promise<void> {
   await db.transactions.delete(id)
 }
 
-// Remove an instrument that no longer has any transactions or watchlist entry.
+// Remove an instrument that no longer has any transactions.
 export async function pruneInstrument(instrumentId: string): Promise<void> {
   const txnCount = await db.transactions.where('instrumentId').equals(instrumentId).count()
-  const watched = await db.watchlist.get(instrumentId)
-  if (txnCount === 0 && !watched) await db.instruments.delete(instrumentId)
-}
-
-export async function addToWatchlist(inst: Instrument): Promise<void> {
-  await getOrCreateInstrument(inst)
-  await db.watchlist.put({ id: inst.id, instrumentId: inst.id, addedAt: Date.now() })
-}
-
-export async function removeFromWatchlist(instrumentId: string): Promise<void> {
-  await db.watchlist.delete(instrumentId)
-  await pruneInstrument(instrumentId)
+  if (txnCount === 0) await db.instruments.delete(instrumentId)
 }
 
 export interface NewSipInput {

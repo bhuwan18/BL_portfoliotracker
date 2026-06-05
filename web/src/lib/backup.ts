@@ -1,5 +1,5 @@
 import { db } from '../db'
-import type { Instrument, Setting, Sip, Transaction, WatchItem } from '../domain/types'
+import type { Instrument, Setting, Sip, Transaction } from '../domain/types'
 
 export interface BackupPayload {
   app: 'my-funds'
@@ -9,7 +9,6 @@ export interface BackupPayload {
     instruments: Instrument[]
     transactions: Transaction[]
     sips: Sip[]
-    watchlist: WatchItem[]
     settings: Setting[]
   }
 }
@@ -17,11 +16,10 @@ export interface BackupPayload {
 // The price cache and the PIN hash are intentionally excluded so a backup is
 // portable and never carries a lock to another device.
 export async function buildBackup(): Promise<BackupPayload> {
-  const [instruments, transactions, sips, watchlist, settings] = await Promise.all([
+  const [instruments, transactions, sips, settings] = await Promise.all([
     db.instruments.toArray(),
     db.transactions.toArray(),
     db.sips.toArray(),
-    db.watchlist.toArray(),
     db.settings.toArray(),
   ])
   return {
@@ -32,7 +30,6 @@ export async function buildBackup(): Promise<BackupPayload> {
       instruments,
       transactions,
       sips,
-      watchlist,
       settings: settings.filter((s) => s.key !== 'pinHash'),
     },
   }
@@ -42,7 +39,6 @@ export interface ImportResult {
   instruments: number
   transactions: number
   sips: number
-  watchlist: number
 }
 
 // Validates and parses a backup JSON string into a typed payload. Throws on anything
@@ -55,34 +51,28 @@ export function parseBackup(json: string): BackupPayload {
   return parsed
 }
 
-// Writes a backup payload into IndexedDB. In 'replace' mode the four data tables are
+// Writes a backup payload into IndexedDB. In 'replace' mode the data tables are
 // cleared first (the price cache is left to refresh on next load). pinHash is always
-// filtered out so an imported backup never carries a lock onto this device.
+// filtered out so an imported backup never carries a lock onto this device. Older
+// payloads may still carry a `watchlist` array — it is simply ignored.
 export async function applyBackup(
   payload: BackupPayload,
   mode: 'replace' | 'merge',
 ): Promise<ImportResult> {
-  const { instruments, transactions, sips, watchlist, settings } = payload.data
-  await db.transaction('rw', [db.instruments, db.transactions, db.sips, db.watchlist, db.settings], async () => {
+  const { instruments, transactions, sips, settings } = payload.data
+  await db.transaction('rw', [db.instruments, db.transactions, db.sips, db.settings], async () => {
     if (mode === 'replace') {
-      await Promise.all([
-        db.instruments.clear(),
-        db.transactions.clear(),
-        db.sips.clear(),
-        db.watchlist.clear(),
-      ])
+      await Promise.all([db.instruments.clear(), db.transactions.clear(), db.sips.clear()])
     }
     await db.instruments.bulkPut(instruments ?? [])
     await db.transactions.bulkPut(transactions ?? [])
     await db.sips.bulkPut(sips ?? [])
-    await db.watchlist.bulkPut(watchlist ?? [])
     if (settings?.length) await db.settings.bulkPut(settings.filter((s) => s.key !== 'pinHash'))
   })
   return {
     instruments: instruments?.length ?? 0,
     transactions: transactions?.length ?? 0,
     sips: sips?.length ?? 0,
-    watchlist: watchlist?.length ?? 0,
   }
 }
 
@@ -91,7 +81,6 @@ export async function wipeAllData(): Promise<void> {
     db.instruments.clear(),
     db.transactions.clear(),
     db.sips.clear(),
-    db.watchlist.clear(),
     db.prices.clear(),
     db.settings.clear(),
   ])
