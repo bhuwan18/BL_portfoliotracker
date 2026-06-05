@@ -231,7 +231,12 @@ export function InstrumentDetailScreen() {
           </div>
         )}
 
-        <button className="btn ghost" type="button" style={{ width: '100%', marginTop: 14 }} onClick={() => navigate('/add')}>
+        <button
+          className="btn ghost"
+          type="button"
+          style={{ width: '100%', marginTop: 14 }}
+          onClick={() => navigate('/add', { state: { instrumentId: instrument.id } })}
+        >
           <Plus size={18} /> Add transaction
         </button>
       </div>

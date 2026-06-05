@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { AppBar, SegmentedControl, Spinner, useToast } from '../components/ui'
 import { SearchSheet } from '../components/SearchSheet'
@@ -10,6 +10,7 @@ import {
   priceOnDate,
   type UnifiedSearchResult,
 } from '../api/instrument'
+import { db } from '../db'
 import { addTransaction } from '../db/repo'
 import type { Instrument, TxnKind } from '../domain/types'
 import { formatINR, formatUnits, todayISO } from '../lib/format'
@@ -24,10 +25,12 @@ function num(s: string): number {
 
 export function AddTransactionScreen() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const presetId = (location.state as { instrumentId?: string } | null)?.instrumentId
   const { show, node } = useToast()
 
   const [searchOpen, setSearchOpen] = useState(false)
-  const [building, setBuilding] = useState(false)
+  const [building, setBuilding] = useState(!!presetId)
   const [instrument, setInstrument] = useState<Instrument | null>(null)
 
   const [kind, setKind] = useState<TxnKind>('buy')
@@ -42,6 +45,32 @@ export function AddTransactionScreen() {
   const [saving, setSaving] = useState(false)
 
   const isMf = instrument?.type === 'mf'
+
+  // Preselect the instrument when arriving from its detail page, so the user
+  // can add a transaction without searching for the same symbol again.
+  useEffect(() => {
+    if (!presetId) return
+    let cancelled = false
+    setBuilding(true)
+    void (async () => {
+      try {
+        const inst = await db.instruments.get(presetId)
+        if (cancelled || !inst) return
+        setInstrument(inst)
+        setEntryMode('units')
+        const quote = await fetchQuote(inst)
+        if (!cancelled && quote && quote.price > 0) setPrice(String(quote.price))
+      } catch {
+        if (!cancelled) show('Could not load instrument')
+      } finally {
+        if (!cancelled) setBuilding(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetId])
 
   async function handlePick(r: UnifiedSearchResult) {
     setSearchOpen(false)
