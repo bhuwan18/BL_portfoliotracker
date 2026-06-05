@@ -127,7 +127,7 @@ export function AddTransactionScreen() {
               </div>
               <button
                 type="button"
-                className="link"
+                className="chip-btn"
                 onClick={() => setSearchOpen(true)}
               >
                 Change
@@ -136,7 +136,7 @@ export function AddTransactionScreen() {
           ) : (
             <button
               type="button"
-              className="btn"
+              className="btn dashed"
               onClick={() => setSearchOpen(true)}
               disabled={building}
             >
@@ -254,19 +254,17 @@ export function AddTransactionScreen() {
               />
             </div>
 
-            <div className="card" style={{ marginBottom: 16 }}>
-              <div className="row" style={{ padding: 0 }}>
-                <div className="main">
-                  <div className="title">{kind === 'buy' ? 'Total cost' : 'Total proceeds'}</div>
-                  <div className="subtitle">
+            <div className="card summary-card" style={{ marginBottom: 16 }}>
+              <div className="summary-row">
+                <div className="summary-info">
+                  <div className="summary-label">{kind === 'buy' ? 'Total cost' : 'Total proceeds'}</div>
+                  <div className="summary-sub">
                     {validUnits ? formatUnits(computedUnits) : '—'} units
                     {validPrice ? ` × ${formatINR(priceVal)}` : ''}
                     {feesClean > 0 ? ` + ${formatINR(feesClean)} fees` : ''}
                   </div>
                 </div>
-                <div className="end">
-                  <div className="v tnum">{Number.isFinite(total) ? formatINR(total) : '—'}</div>
-                </div>
+                <div className="summary-total tnum">{Number.isFinite(total) ? formatINR(total) : '—'}</div>
               </div>
             </div>
 
