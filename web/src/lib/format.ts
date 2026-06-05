@@ -62,6 +62,11 @@ export function formatDate(iso: string): string {
   return dayjs(iso).format('D MMM YYYY')
 }
 
+// Compact DD/MM/YY for the "As on" price-date line in transaction rows.
+export function formatDateShort(ms: number): string {
+  return dayjs(ms).format('DD/MM/YY')
+}
+
 export function formatDateTime(ms: number): string {
   return dayjs(ms).format('D MMM YYYY, h:mm A')
 }

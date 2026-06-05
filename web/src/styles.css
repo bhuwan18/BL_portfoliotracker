@@ -459,6 +459,160 @@ a {
   color: var(--text-dim);
   text-transform: uppercase;
 }
+.badge-type.sell {
+  margin-left: 8px;
+  background: var(--neg-soft);
+  color: var(--neg);
+}
+
+/* ---------- Transaction rows (per-lot performance) ---------- */
+.row.txn-row {
+  align-items: flex-start;
+}
+.row.txn-row .main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.row.txn-row .subtitle {
+  margin-top: 0;
+}
+.row.txn-row .end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.row.txn-row .end .v {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+.row.txn-row .end .s {
+  margin-top: 0;
+}
+.row.txn-row .txn-del {
+  align-self: center;
+}
+/* Solid colour-filled gain/loss chip, matching the reference app. */
+.gain-badge {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.3;
+  padding: 2px 9px;
+  border-radius: 7px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.gain-badge.pos {
+  background: var(--pos);
+}
+.gain-badge.neg {
+  background: var(--neg);
+}
+.gain-badge.zero {
+  background: var(--text-dim);
+}
+
+/* ---------- Holding card (rich row, Portfolio + Holdings) ---------- */
+/* Two-column card: left = labels/details, right = figures, trailing chevron.
+   Reuses .row (surface/border/radius/padding) + .row.tap:active press. */
+.holding-card {
+  align-items: center;
+  gap: 8px;
+}
+.holding-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.holding-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* First line aligns the (possibly 2-line) name with the top of the badge. */
+.holding-line-1 {
+  align-items: flex-start;
+}
+.holding-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1.3;
+  /* Wrap long fund names up to 2 lines without overflowing the figures column. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.holding-detail {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  /* Detail lines (As on / Units) stay single-line; only .holding-name wraps. This
+     keeps the left labels baseline-aligned with the right figures column. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.holding-fig {
+  flex: none;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Day-change figure colour by sign — set here so we don't piggyback on .delta
+   (whose font-weight:700 would otherwise collide with .holding-fig's 600 by source
+   order). Colour is decoupled from weight. */
+.holding-fig.pos {
+  color: var(--pos);
+}
+.holding-fig.neg {
+  color: var(--neg);
+}
+.holding-fig.zero {
+  color: var(--text-dim);
+}
+.holding-noprice {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+/* The P&L badge doubles as the return-mode toggle. It's a real <button>, so reset
+   native chrome (border/font) — visuals come from .gain-badge. */
+.holding-toggle {
+  flex: none;
+  cursor: pointer;
+  border: 0;
+  margin: 0;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.holding-chevron {
+  flex: none;
+  align-self: center;
+  color: var(--text-dim);
+}
+/* Visible keyboard focus (no global focus-visible ring exists). */
+.holding-card:focus-visible,
+.holding-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -705,7 +859,10 @@ textarea.input {
   max-width: var(--maxw);
   background: var(--bg);
   border-radius: 22px 22px 0 0;
-  max-height: 90vh;
+  /* Bounded by the scrim (which is sized to the visual viewport when the
+     keyboard is open) so the sheet never overflows behind the keyboard;
+     keeps the usual gap below the status bar when there's no keyboard. */
+  max-height: min(90vh, 100%);
   display: flex;
   flex-direction: column;
   padding-bottom: var(--safe-bottom);

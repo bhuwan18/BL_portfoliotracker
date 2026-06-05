@@ -18,7 +18,7 @@ import {
 } from '../db/repo'
 import { CHART_RANGES, fetchHistory, type ChartRange } from '../api/instrument'
 import { FREQUENCY_LABEL, nextDueDate } from '../domain/sip'
-import { formatDate, formatINR, formatUnits, sign } from '../lib/format'
+import { formatDate, formatDateShort, formatINR, formatNumber, formatUnits, sign } from '../lib/format'
 
 export function InstrumentDetailScreen() {
   const navigate = useNavigate()
@@ -85,6 +85,7 @@ export function InstrumentDetailScreen() {
   const isMf = instrument.type === 'mf'
   const price = snapshot?.price ?? holding?.price ?? 0
   const hasPrice = snapshot != null || (holding?.hasPrice ?? false)
+  const asOf = snapshot?.asOf ?? holding?.priceAsOf
   const dayChange = snapshot ? snapshot.price - snapshot.prevClose : 0
   const dayChangePct = snapshot && snapshot.prevClose ? (dayChange / snapshot.prevClose) * 100 : 0
 
@@ -256,29 +257,51 @@ export function InstrumentDetailScreen() {
           <EmptyState title="No transactions" message="Add a buy or sell to start tracking this instrument." />
         ) : (
           <div className="list">
-            {sortedTxns.map((t) => (
-              <div key={t.id} className="row">
-                <span className="badge-type">{t.kind === 'buy' ? 'BUY' : 'SELL'}</span>
-                <div className="main">
-                  <div className="title">{formatDate(t.date)}</div>
-                  <div className="subtitle">
-                    {formatUnits(t.units)} {isMf ? 'units' : 'qty'} @ {formatINR(t.price)}
+            {sortedTxns.map((t) => {
+              const amount = t.units * t.price // invested (buy) / proceeds (sell)
+              const currentVal = t.units * price
+              const gain = currentVal - amount
+              // Per-lot performance only makes sense for held buy lots with a live price.
+              const showPerf = hasPrice && t.kind === 'buy'
+              return (
+                <div key={t.id} className="row txn-row">
+                  <div className="main">
+                    <div className="title">
+                      {formatDate(t.date)}
+                      {t.kind === 'sell' && <span className="badge-type sell">Sell</span>}
+                    </div>
+                    {showPerf && asOf != null && (
+                      <div className="subtitle">
+                        As on {formatDateShort(asOf)} @ {formatNumber(price, 2)}
+                      </div>
+                    )}
+                    <div className="subtitle">
+                      {isMf ? 'Units' : 'Qty'} {formatUnits(t.units)} @ {formatNumber(t.price, 2)}
+                    </div>
+                    {t.notes && <div className="subtitle faint">{t.notes}</div>}
                   </div>
+                  <div className="end">
+                    {showPerf ? (
+                      <>
+                        <span className={`gain-badge ${sign(gain)}`}>{formatNumber(gain, 0)}</span>
+                        <div className="v">{formatNumber(currentVal, 0)}</div>
+                        <div className="s faint">{formatNumber(amount, 0)}</div>
+                      </>
+                    ) : (
+                      <div className="v">{formatNumber(amount, 0)}</div>
+                    )}
+                  </div>
+                  <button
+                    className="icon-btn txn-del"
+                    type="button"
+                    aria-label="Delete transaction"
+                    onClick={() => void removeTxn(t.id)}
+                  >
+                    <Trash2 size={17} />
+                  </button>
                 </div>
-                <div className="end">
-                  <div className="v">{formatINR(t.units * t.price, 0)}</div>
-                  {t.notes && <div className="s faint">{t.notes}</div>}
-                </div>
-                <button
-                  className="icon-btn"
-                  type="button"
-                  aria-label="Delete transaction"
-                  onClick={() => void removeTxn(t.id)}
-                >
-                  <Trash2 size={17} />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
