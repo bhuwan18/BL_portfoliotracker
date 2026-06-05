@@ -11,11 +11,20 @@ import {
   type UnifiedSearchResult,
 } from '../api/instrument'
 import { db } from '../db'
-import { addTransaction } from '../db/repo'
-import type { Instrument, TxnKind } from '../domain/types'
-import { formatINR, formatUnits, todayISO } from '../lib/format'
+import { addSip, addTransaction, runDueSips } from '../db/repo'
+import { FREQUENCY_LABEL } from '../domain/sip'
+import type { Instrument, SipFrequency, TxnKind } from '../domain/types'
+import { formatDate, formatINR, formatUnits, todayISO } from '../lib/format'
 
 type EntryMode = 'amount' | 'units'
+// Transaction type plus the SIP plan option (mutual funds only).
+type FormMode = TxnKind | 'sip'
+
+const FREQ_OPTIONS: { value: SipFrequency; label: string }[] = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'fortnightly', label: 'Fortnightly' },
+  { value: 'monthly', label: 'Monthly' },
+]
 
 // Parse a user-entered number; empty / non-finite -> NaN (treated as invalid).
 function num(s: string): number {
@@ -33,7 +42,7 @@ export function AddTransactionScreen() {
   const [building, setBuilding] = useState(!!presetId)
   const [instrument, setInstrument] = useState<Instrument | null>(null)
 
-  const [kind, setKind] = useState<TxnKind>('buy')
+  const [kind, setKind] = useState<FormMode>('buy')
   const [date, setDate] = useState(todayISO())
   const [entryMode, setEntryMode] = useState<EntryMode>('units')
   const [amount, setAmount] = useState('')
@@ -41,10 +50,17 @@ export function AddTransactionScreen() {
   const [price, setPrice] = useState('')
   const [fees, setFees] = useState('')
   const [notes, setNotes] = useState('')
+  const [frequency, setFrequency] = useState<SipFrequency>('monthly')
   const [pricing, setPricing] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const isMf = instrument?.type === 'mf'
+  const isSip = kind === 'sip'
+
+  // SIPs are mutual-fund only; revert to Buy if the instrument is a stock.
+  useEffect(() => {
+    if (instrument && instrument.type !== 'mf' && kind === 'sip') setKind('buy')
+  }, [instrument, kind])
 
   // Preselect the instrument when arriving from its detail page, so the user
   // can add a transaction without searching for the same symbol again.
@@ -115,13 +131,32 @@ export function AddTransactionScreen() {
   const feesClean = Number.isFinite(feesVal) ? feesVal : 0
   const validUnits = Number.isFinite(computedUnits) && computedUnits > 0
   const validPrice = Number.isFinite(priceVal) && priceVal > 0
-  const canSave = !!instrument && validUnits && validPrice && !saving
+  const validAmount = Number.isFinite(amountVal) && amountVal > 0
+  const canSave =
+    !!instrument &&
+    !saving &&
+    (isSip ? validAmount && date.length > 0 : validUnits && validPrice)
 
   const total = validUnits && validPrice ? computedUnits * priceVal + feesClean : NaN
   const priceLabel = isMf ? 'NAV' : 'Price'
 
   async function handleSave() {
-    if (!instrument || !validUnits || !validPrice) return
+    if (!instrument) return
+    if (kind === 'sip') {
+      if (!validAmount || !date) return
+      setSaving(true)
+      try {
+        await addSip({ instrument, amount: amountVal, frequency, startDate: date })
+        await runDueSips()
+        show('SIP created')
+        navigate(-1)
+      } catch {
+        show('Could not create SIP')
+        setSaving(false)
+      }
+      return
+    }
+    if (!validUnits || !validPrice) return
     setSaving(true)
     try {
       await addTransaction({
@@ -181,26 +216,74 @@ export function AddTransactionScreen() {
               <label>Type</label>
               <SegmentedControl
                 accent
-                options={[
-                  { value: 'buy', label: 'Buy' },
-                  { value: 'sell', label: 'Sell' },
-                ]}
+                options={
+                  isMf
+                    ? [
+                        { value: 'buy', label: 'Buy' },
+                        { value: 'sell', label: 'Sell' },
+                        { value: 'sip', label: 'SIP' },
+                      ]
+                    : [
+                        { value: 'buy', label: 'Buy' },
+                        { value: 'sell', label: 'Sell' },
+                      ]
+                }
                 value={kind}
                 onChange={setKind}
               />
             </div>
 
             <div className="field">
-              <label>Date</label>
+              <label>{isSip ? 'Start date' : 'Date'}</label>
               <input
                 className="input"
                 type="date"
                 value={date}
-                max={todayISO()}
-                onChange={(e) => handleDateChange(e.target.value)}
+                max={isSip ? undefined : todayISO()}
+                onChange={(e) =>
+                  isSip ? setDate(e.target.value) : handleDateChange(e.target.value)
+                }
               />
             </div>
 
+            {isSip ? (
+              <>
+                <div className="field">
+                  <label>Amount per installment</label>
+                  <div className="input-prefix">
+                    <span className="pfx">₹</span>
+                    <input
+                      className="input"
+                      inputMode="decimal"
+                      placeholder="5000"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label>Frequency</label>
+                  <SegmentedControl options={FREQ_OPTIONS} value={frequency} onChange={setFrequency} />
+                </div>
+
+                <div className="card summary-card" style={{ marginBottom: 16 }}>
+                  <div className="summary-row">
+                    <div className="summary-info">
+                      <div className="summary-label">SIP plan</div>
+                      <div className="summary-sub">
+                        {validAmount ? formatINR(amountVal) : '—'} · {FREQUENCY_LABEL[frequency]} · from{' '}
+                        {formatDate(date)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="help" style={{ marginTop: 8 }}>
+                    Each installment is recorded automatically using that date's NAV.
+                  </div>
+                </div>
+              </>
+            ) : (
+            <>
             {isMf && (
               <div className="field">
                 <label>Entry mode</label>
@@ -296,10 +379,12 @@ export function AddTransactionScreen() {
                 <div className="summary-total tnum">{Number.isFinite(total) ? formatINR(total) : '—'}</div>
               </div>
             </div>
+            </>
+            )}
 
             <button type="button" className="btn primary" disabled={!canSave} onClick={handleSave}>
               {saving ? <Spinner /> : <Plus size={18} />}
-              {saving ? 'Saving…' : 'Save transaction'}
+              {saving ? 'Saving…' : isSip ? 'Create SIP' : 'Save transaction'}
             </button>
           </>
         )}

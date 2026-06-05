@@ -1,12 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { CalendarClock, Plus, RefreshCw, Star, TrendingUp, Wallet } from 'lucide-react'
+import { Plus, RefreshCw, Wallet } from 'lucide-react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
 import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
 import { useMarket } from '../store/market'
 import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
-import { DonutChart } from '../components/DonutChart'
 import { HoldingRow } from '../components/HoldingRow'
-import { formatINR, formatPct, sign } from '../lib/format'
+import { formatINR, formatPct, formatSignedINR, sign } from '../lib/format'
 
 export function PortfolioScreen() {
   const navigate = useNavigate()
@@ -22,7 +21,6 @@ export function PortfolioScreen() {
     <>
       <AppBar
         title="My Funds"
-        subtitle="Your portfolio"
         right={
           <button
             className="icon-btn"
@@ -40,7 +38,6 @@ export function PortfolioScreen() {
       ) : !hasHoldings ? (
         <>
           <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
-          <QuickActions />
           <div className="screen">
             <EmptyState
               icon={<Wallet size={28} />}
@@ -57,9 +54,6 @@ export function PortfolioScreen() {
       ) : (
         <>
           <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
-          <QuickActions />
-
-          {summary.currentValue > 0 && <Allocation summary={summary} />}
 
           <div className="screen section">
             <div className="section-title">
@@ -95,6 +89,9 @@ function Hero({
   mode: ReturnMode
   onToggleMode: () => void
 }) {
+  const showAlloc = summary.currentValue > 0
+  const stockPct = showAlloc ? (summary.byType.stock / summary.currentValue) * 100 : 0
+  const mfPct = showAlloc ? (summary.byType.mf / summary.currentValue) * 100 : 0
   return (
     <div className="hero">
       <div className="label">Current value</div>
@@ -122,7 +119,7 @@ function Hero({
           )}
         </button>
       </div>
-      <div className="hero-grid">
+      <div className="stat-strip">
         <div className="hero-stat">
           <div className="k">Invested</div>
           <div className="v tnum">{formatINR(summary.invested, 0)}</div>
@@ -132,85 +129,37 @@ function Hero({
           <div className="v tnum">
             {summary.totalPnl >= 0 ? '+' : '−'}
             {formatINR(Math.abs(summary.totalPnl), 0)}
-          </div>
-        </div>
-        <div className="hero-stat">
-          <div className="k">Realized P/L</div>
-          <div className="v tnum">
-            {summary.realizedPnl >= 0 ? '+' : '−'}
-            {formatINR(Math.abs(summary.realizedPnl), 0)}
-          </div>
-        </div>
-        <div className="hero-stat">
-          <div className="k">Day's gain</div>
-          <div className="v tnum">
-            {summary.dayChange >= 0 ? '+' : '−'}
-            {formatINR(Math.abs(summary.dayChange), 0)}
+            <span className="sub"> ({formatPct(summary.totalPnlPct, false)})</span>
           </div>
         </div>
       </div>
-    </div>
-  )
-}
 
-function QuickActions() {
-  const navigate = useNavigate()
-  const items = [
-    { icon: <Plus size={20} />, label: 'Add', to: '/add' },
-    { icon: <CalendarClock size={20} />, label: 'SIPs', to: '/sip' },
-    { icon: <Star size={20} />, label: 'Watchlist', to: '/watchlist' },
-    { icon: <TrendingUp size={20} />, label: 'Holdings', to: '/holdings' },
-  ]
-  return (
-    <div className="screen section" style={{ marginTop: 16 }}>
-      <div className="quick-row">
-        {items.map((it) => (
-          <button key={it.label} className="quick" type="button" onClick={() => navigate(it.to)}>
-            <span className="qi">{it.icon}</span>
-            <span className="ql">{it.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
+      {sign(summary.realizedPnl) !== 'zero' && (
+        <div className="hero-realized">
+          Realized P/L <span className="tnum">{formatSignedINR(summary.realizedPnl, 0)}</span>
+        </div>
+      )}
 
-function Allocation({ summary }: { summary: ReturnType<typeof usePortfolio>['summary'] }) {
-  const data = [
-    { name: 'Stocks', value: summary.byType.stock, color: '#2f80ed' },
-    { name: 'Mutual Funds', value: summary.byType.mf, color: '#8b5cf6' },
-  ]
-  const total = summary.currentValue || 1
-  return (
-    <div className="screen section">
-      <div className="section-title">Allocation</div>
-      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-        <DonutChart
-          data={data}
-          size={130}
-          center={
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Total</div>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>{formatINR(summary.currentValue, 0)}</div>
-            </div>
-          }
-        />
-        <div className="legend">
-          {data.map((d) => (
-            <div key={d.name} className="legend-item">
-              <span className="dot" style={{ background: d.color }} />
-              <span className="nm">{d.name}</span>
-              <span className="vl">{((d.value / total) * 100).toFixed(1)}%</span>
-            </div>
-          ))}
-          <div className="legend-item" style={{ marginTop: 4 }}>
-            <span className="nm">Day's gain</span>
-            <span className={`vl delta ${sign(summary.dayChange)}`}>
-              {formatINR(summary.dayChange, 0)}
+      {showAlloc && (
+        <div className="alloc">
+          <div className="alloc-bar">
+            {summary.byType.stock > 0 && (
+              <span className="seg" style={{ width: `${stockPct}%`, background: '#2f80ed' }} />
+            )}
+            {summary.byType.mf > 0 && (
+              <span className="seg" style={{ width: `${mfPct}%`, background: '#8b5cf6' }} />
+            )}
+          </div>
+          <div className="alloc-legend">
+            <span>
+              <span className="dot" style={{ background: '#2f80ed' }} /> Stocks {stockPct.toFixed(1)}%
+            </span>
+            <span>
+              <span className="dot" style={{ background: '#8b5cf6' }} /> Mutual Funds {mfPct.toFixed(1)}%
             </span>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

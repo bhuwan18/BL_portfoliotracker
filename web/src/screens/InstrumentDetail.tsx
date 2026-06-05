@@ -8,8 +8,16 @@ import { InstrumentAvatar } from '../components/InstrumentAvatar'
 import { useHolding, useInstrument, useInstrumentTxns } from '../hooks/usePortfolio'
 import { useMarket } from '../store/market'
 import { db } from '../db'
-import { addToWatchlist, deleteTransaction, pruneInstrument, removeFromWatchlist } from '../db/repo'
+import {
+  addToWatchlist,
+  deleteSip,
+  deleteTransaction,
+  pruneInstrument,
+  removeFromWatchlist,
+  setSipActive,
+} from '../db/repo'
 import { CHART_RANGES, fetchHistory, type ChartRange } from '../api/instrument'
+import { FREQUENCY_LABEL, nextDueDate } from '../domain/sip'
 import { formatDate, formatINR, formatUnits, sign } from '../lib/format'
 
 export function InstrumentDetailScreen() {
@@ -22,6 +30,10 @@ export function InstrumentDetailScreen() {
   const snapshot = useMarket((s) => s.prices[id])
   const refreshOne = useMarket((s) => s.refreshOne)
   const watched = useLiveQuery(() => (id ? db.watchlist.get(id) : undefined), [id])
+  const sips = useLiveQuery(
+    () => (id ? db.sips.where('instrumentId').equals(id).toArray() : []),
+    [id],
+  )
 
   const [range, setRange] = useState<ChartRange>('1y')
   const [points, setPoints] = useState<{ t: number; close: number }[]>([])
@@ -86,6 +98,11 @@ export function InstrumentDetailScreen() {
   async function removeTxn(txnId: string) {
     await deleteTransaction(txnId)
     await pruneInstrument(instrument!.id)
+  }
+
+  async function removeSip(sipId: string) {
+    if (!window.confirm('Delete this SIP? Existing transactions will be kept.')) return
+    await deleteSip(sipId, false)
   }
 
   return (
@@ -195,6 +212,40 @@ export function InstrumentDetailScreen() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {isMf && sips && sips.length > 0 && (
+        <div className="screen section">
+          <div className="section-title">SIP</div>
+          <div className="list">
+            {sips.map((sip) => (
+              <div key={sip.id} className="row">
+                <div className="main">
+                  <div className="title">
+                    {formatINR(sip.amount)} · {FREQUENCY_LABEL[sip.frequency]}
+                  </div>
+                  <div className="subtitle">
+                    {sip.active ? `Next ${formatDate(nextDueDate(sip))}` : 'Paused'}
+                  </div>
+                </div>
+                <button
+                  className={sip.active ? 'switch on' : 'switch'}
+                  type="button"
+                  aria-label={sip.active ? 'Pause SIP' : 'Resume SIP'}
+                  onClick={() => void setSipActive(sip.id, !sip.active)}
+                />
+                <button
+                  className="icon-btn"
+                  type="button"
+                  aria-label="Delete SIP"
+                  onClick={() => void removeSip(sip.id)}
+                >
+                  <Trash2 size={17} />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
