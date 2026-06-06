@@ -630,6 +630,13 @@ a {
 .holding-card {
   align-items: center;
   gap: 8px;
+  /* Tighter than the generic .row (13px 14px) so holdings sit compact, like the
+     reference app. */
+  padding: 10px 12px;
+}
+/* Pull the holding cards closer together than the generic .list (10px). */
+.holdings-list {
+  gap: 7px;
 }
 /* Subtle type cue: a faint surface tint + slightly tinted border in the instrument's
    hue (blue = stock, purple = MF), matching the hero allocation colours. Light shades
@@ -647,7 +654,7 @@ a {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .holding-line {
   display: flex;
@@ -1151,13 +1158,13 @@ textarea.input {
 /* ---------- Chart ---------- */
 .chart-wrap {
   width: 100%;
-  height: 220px;
-  margin-top: 4px;
+  height: 150px;
+  margin-top: 8px;
 }
 .range-row {
   display: flex;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 .range-row button {
   flex: 1;
@@ -1465,13 +1472,15 @@ textarea.input {
 .detail-price {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin: 4px 0 2px;
+  margin: 2px 0;
 }
+/* The live price is reference info, not the headline of this screen (the position
+   below is) — keep it modest rather than a hero figure. */
 .detail-price .p {
-  font-size: var(--text-4xl);
-  font-weight: 800;
+  font-size: var(--text-2xl);
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 .summary-2 {

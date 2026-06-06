@@ -280,7 +280,7 @@ export function SortableHoldings({
   }
 
   return (
-    <div className="list">
+    <div className="list holdings-list">
       {items.map((h) => {
         const id = h.instrument.id
         const dy = offsets.get(id) ?? 0

@@ -36,7 +36,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: any[] }
 export function PriceChart({
   points,
   loading = false,
-  height = 220,
+  height = 150,
 }: {
   points: Point[]
   loading?: boolean
