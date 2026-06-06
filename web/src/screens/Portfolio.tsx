@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpDown, Check, ChevronDown, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ArrowUpDown, CandlestickChart, Check, ChevronDown, Layers, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
 import { useActiveProfile, useProfiles } from '../hooks/useProfiles'
 import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
@@ -26,12 +26,33 @@ export function PortfolioScreen() {
   const [editing, setEditing] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<Holding | null>(null)
   const [switchOpen, setSwitchOpen] = useState(false)
+  const [typeFilter, setTypeFilter] = useState<'all' | 'stock' | 'mf'>('all')
 
   const holdings = useMemo(
     () => orderHoldings(summary.holdings, order),
     [summary.holdings, order],
   )
   const hasHoldings = summary.holdings.length > 0
+
+  // Subtle stocks/MF view filter (Holdings header). Only meaningful when the portfolio holds
+  // both kinds; with a single kind the toggle is hidden and the filter stays 'all'.
+  const hasStocks = summary.holdings.some((h) => h.instrument.type === 'stock')
+  const hasMf = summary.holdings.some((h) => h.instrument.type === 'mf')
+  const showTypeFilter = hasStocks && hasMf
+  // If the filtered-to kind disappears (e.g. its last holding deleted), revert to showing all.
+  useEffect(() => {
+    if (!showTypeFilter && typeFilter !== 'all') setTypeFilter('all')
+  }, [showTypeFilter, typeFilter])
+  const visibleHoldings = useMemo(
+    () => (typeFilter === 'all' ? holdings : holdings.filter((h) => h.instrument.type === typeFilter)),
+    [holdings, typeFilter],
+  )
+  // Reordering persists a single ordered id list, so it must run over the full holdings set;
+  // entering edit mode clears any active type filter to keep that saved order complete.
+  const enterEdit = () => {
+    setTypeFilter('all')
+    setEditing(true)
+  }
 
   // With a single profile the title stays the static brand. Once a second profile exists it
   // becomes the active profile's name + a caret that opens the switch sheet.
@@ -122,22 +143,46 @@ export function PortfolioScreen() {
                   </button>
                 </span>
               ) : (
-                <button
-                  type="button"
-                  className="icon-link"
-                  aria-label="Reorder holdings"
-                  onClick={() => setEditing(true)}
-                >
-                  <ArrowUpDown size={15} aria-hidden="true" />
-                </button>
+                <span className="section-actions">
+                  {showTypeFilter && (
+                    <span className="type-filter" role="group" aria-label="Filter holdings by type">
+                      <button
+                        type="button"
+                        className={`type-filter-btn stock${typeFilter === 'stock' ? ' active' : ''}`}
+                        aria-pressed={typeFilter === 'stock'}
+                        aria-label="Show stocks only"
+                        onClick={() => setTypeFilter((f) => (f === 'stock' ? 'all' : 'stock'))}
+                      >
+                        <CandlestickChart size={15} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`type-filter-btn mf${typeFilter === 'mf' ? ' active' : ''}`}
+                        aria-pressed={typeFilter === 'mf'}
+                        aria-label="Show mutual funds only"
+                        onClick={() => setTypeFilter((f) => (f === 'mf' ? 'all' : 'mf'))}
+                      >
+                        <Layers size={15} aria-hidden="true" />
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="icon-link"
+                    aria-label="Reorder holdings"
+                    onClick={enterEdit}
+                  >
+                    <ArrowUpDown size={15} aria-hidden="true" />
+                  </button>
+                </span>
               )}
             </div>
             <SortableHoldings
-              holdings={holdings}
+              holdings={visibleHoldings}
               mode={mode}
               onToggleMode={toggleMode}
               editing={editing}
-              onRequestEdit={() => setEditing(true)}
+              onRequestEdit={enterEdit}
               onReorder={(ids) => void save(ids)}
               onOpen={(id) => navigate(`/instrument/${encodeURIComponent(id)}`)}
               onDelete={(id) =>

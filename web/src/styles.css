@@ -248,6 +248,42 @@ a {
   outline-offset: 2px;
 }
 
+/* Subtle stocks/MF view filter sitting next to the reorder handle. Inactive buttons read
+   like the reorder icon (faint); the selected kind lights up in its allocation colour. */
+.section-title .type-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.section-title .type-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.section-title .type-filter-btn:active {
+  color: var(--text);
+}
+.section-title .type-filter-btn.stock.active {
+  color: var(--stock);
+  background: color-mix(in srgb, var(--stock) 14%, transparent);
+}
+.section-title .type-filter-btn.mf.active {
+  color: var(--mf);
+  background: color-mix(in srgb, var(--mf) 14%, transparent);
+}
+.section-title .type-filter-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---------- Header ---------- */
 .appbar {
   position: sticky;
