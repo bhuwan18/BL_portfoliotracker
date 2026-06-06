@@ -1,15 +1,17 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpDown, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
+import { ArrowUpDown, Check, ChevronDown, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
+import { useActiveProfile, useProfiles } from '../hooks/useProfiles'
 import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
 import { orderHoldings, useHoldingsOrder } from '../hooks/useHoldingsOrder'
 import { useMarket } from '../store/market'
 import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
+import { Sheet } from '../components/Sheet'
 import { SortableHoldings } from '../components/SortableHoldings'
 import { DeleteHoldingSheet } from '../components/DeleteHoldingSheet'
 import { formatINR, formatPct, formatSignedINR, sign } from '../lib/format'
-import type { Holding } from '../domain/types'
+import type { Holding, Profile } from '../domain/types'
 
 export function PortfolioScreen() {
   const navigate = useNavigate()
@@ -19,8 +21,11 @@ export function PortfolioScreen() {
   const refresh = useMarket((s) => s.refresh)
   const [mode, toggleMode] = useReturnMode()
   const { order, isCustom, save, reset } = useHoldingsOrder()
+  const profiles = useProfiles()
+  const { activeId, setActive } = useActiveProfile()
   const [editing, setEditing] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<Holding | null>(null)
+  const [switchOpen, setSwitchOpen] = useState(false)
 
   const holdings = useMemo(
     () => orderHoldings(summary.holdings, order),
@@ -28,10 +33,28 @@ export function PortfolioScreen() {
   )
   const hasHoldings = summary.holdings.length > 0
 
+  // With a single profile the title stays the static brand. Once a second profile exists it
+  // becomes the active profile's name + a caret that opens the switch sheet.
+  const multiProfile = profiles.length > 1
+  const activeProfile = profiles.find((p) => p.id === activeId)
+  const title = multiProfile ? (
+    <button
+      type="button"
+      className="profile-title"
+      onClick={() => setSwitchOpen(true)}
+      aria-label="Switch profile"
+    >
+      <span>{activeProfile?.name ?? 'B Funds'}</span>
+      <ChevronDown size={18} aria-hidden="true" />
+    </button>
+  ) : (
+    'B Funds'
+  )
+
   return (
     <>
       <AppBar
-        title="B Funds"
+        title={title}
         right={
           <>
             <button
@@ -126,7 +149,56 @@ export function PortfolioScreen() {
       )}
 
       <DeleteHoldingSheet holding={pendingDelete} onClose={() => setPendingDelete(null)} />
+
+      <ProfileSwitchSheet
+        open={switchOpen}
+        profiles={profiles}
+        activeId={activeId}
+        onClose={() => setSwitchOpen(false)}
+        onSelect={(id) => {
+          void setActive(id)
+          setSwitchOpen(false)
+        }}
+      />
     </>
+  )
+}
+
+function ProfileSwitchSheet({
+  open,
+  profiles,
+  activeId,
+  onClose,
+  onSelect,
+}: {
+  open: boolean
+  profiles: Profile[]
+  activeId: string | undefined
+  onClose: () => void
+  onSelect: (id: string) => void
+}) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Switch profile">
+      <div className="list">
+        {profiles.map((p) => (
+          <button
+            key={p.id}
+            className="setting"
+            type="button"
+            onClick={() => onSelect(p.id)}
+          >
+            <span className="lbl">
+              <div className="t">{p.name}</div>
+            </span>
+            {p.id === activeId && (
+              <span className="ic" style={{ color: 'var(--accent)' }} aria-label="Active">
+                <Check size={18} />
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </Sheet>
   )
 }
 

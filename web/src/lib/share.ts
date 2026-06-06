@@ -16,7 +16,7 @@ export class ShareNotFoundError extends Error {
   }
 }
 
-// Uploads the full portfolio and returns a short reusable key (valid 30 days).
+// Uploads the active profile's portfolio and returns a short reusable key (valid 30 days).
 export async function shareBackup(): Promise<ShareResult> {
   const payload = await buildBackup()
   const res = await fetch('/api/share', {
@@ -30,7 +30,7 @@ export async function shareBackup(): Promise<ShareResult> {
   return data
 }
 
-// Fetches the portfolio behind a key and replaces all data on this device with it.
+// Fetches the portfolio behind a key and replaces the active profile's data with it.
 export async function importFromCode(rawCode: string): Promise<ImportResult> {
   const code = rawCode.trim()
   if (!code) throw new Error('Enter a key.')
@@ -40,5 +40,5 @@ export async function importFromCode(rawCode: string): Promise<ImportResult> {
   if (!res.ok) throw new Error('Could not fetch that key. Check your connection and try again.')
   // The server returns the raw BackupPayload; re-validate via parseBackup for safety.
   const payload = parseBackup(JSON.stringify(await res.json()))
-  return applyBackup(payload, 'replace')
+  return applyBackup(payload)
 }

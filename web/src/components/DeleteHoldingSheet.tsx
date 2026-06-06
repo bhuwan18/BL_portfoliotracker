@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { Sheet } from './Sheet'
 import { Spinner, useToast } from './ui'
 import { deleteHolding } from '../db/repo'
+import { useActiveProfile } from '../hooks/useProfiles'
 import type { Holding } from '../domain/types'
 
 // Confirmation sheet for deleting a whole holding from the dashboard (swipe-left action).
@@ -16,6 +17,7 @@ export function DeleteHoldingSheet({
   onClose: () => void
 }) {
   const { show, node } = useToast()
+  const { activeId } = useActiveProfile()
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -23,10 +25,10 @@ export function DeleteHoldingSheet({
   }, [holding])
 
   async function handleDelete() {
-    if (!holding || deleting) return
+    if (!holding || deleting || activeId === undefined) return
     setDeleting(true)
     try {
-      await deleteHolding(holding.instrument.id)
+      await deleteHolding(holding.instrument.id, activeId)
       onClose()
     } catch {
       show('Could not delete holding')

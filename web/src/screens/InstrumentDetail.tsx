@@ -7,6 +7,7 @@ import { PriceChart } from '../components/PriceChart'
 import { InstrumentAvatar } from '../components/InstrumentAvatar'
 import { EditTransactionSheet } from '../components/EditTransactionSheet'
 import { useHolding, useInstrument, useInstrumentTxns } from '../hooks/usePortfolio'
+import { useActiveProfile } from '../hooks/useProfiles'
 import { useMarket } from '../store/market'
 import { db } from '../db'
 import { deleteSip, deleteTransaction, pruneInstrument, setSipActive } from '../db/repo'
@@ -24,9 +25,17 @@ export function InstrumentDetailScreen() {
   const txns = useInstrumentTxns(id)
   const snapshot = useMarket((s) => s.prices[id])
   const refreshOne = useMarket((s) => s.refreshOne)
+  const { activeId } = useActiveProfile()
   const sips = useLiveQuery(
-    () => (id ? db.sips.where('instrumentId').equals(id).toArray() : []),
-    [id],
+    () =>
+      id && activeId !== undefined
+        ? db.sips
+            .where('instrumentId')
+            .equals(id)
+            .and((s) => s.profileId === activeId)
+            .toArray()
+        : [],
+    [id, activeId],
   )
 
   const [range, setRange] = useState<ChartRange>('1y')

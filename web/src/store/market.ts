@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Instrument, PriceSnapshot } from '../domain/types'
 import { fetchQuote } from '../api/instrument'
-import { db } from '../db'
+import { db, getSetting, setSetting } from '../db'
 
 interface MarketState {
   prices: Record<string, PriceSnapshot>
@@ -15,6 +15,17 @@ interface MarketState {
 
 const CONCURRENCY = 5
 
+export const LAST_REFRESH_KEY = 'lastPriceRefresh'
+export const PRICE_STALE_MS = 2 * 60 * 60 * 1000 // 2 hours
+
+// Stale when we've never bulk-refreshed, or the last bulk refresh is older than the window.
+// Reads the persisted timestamp directly (not the store's hydrated `lastRefresh`) so it's
+// immune to the race between hydrate() and the bootstrap effect that gates on it.
+export async function pricesAreStale(): Promise<boolean> {
+  const last = await getSetting<number | null>(LAST_REFRESH_KEY, null)
+  return last == null || Date.now() - last > PRICE_STALE_MS
+}
+
 export const useMarket = create<MarketState>((set, get) => ({
   prices: {},
   refreshing: false,
@@ -25,7 +36,8 @@ export const useMarket = create<MarketState>((set, get) => ({
     const rows = await db.prices.toArray()
     const map: Record<string, PriceSnapshot> = {}
     for (const r of rows) map[r.instrumentId] = r
-    set({ prices: map })
+    const lastRefresh = await getSetting<number | null>(LAST_REFRESH_KEY, null)
+    set({ prices: map, lastRefresh })
   },
 
   setPrice(p) {
@@ -57,7 +69,9 @@ export const useMarket = create<MarketState>((set, get) => ({
         }
       }
       await Promise.all(Array.from({ length: CONCURRENCY }, worker))
-      set({ lastRefresh: Date.now() })
+      const now = Date.now()
+      set({ lastRefresh: now })
+      void setSetting(LAST_REFRESH_KEY, now)
     } finally {
       set({ refreshing: false })
     }

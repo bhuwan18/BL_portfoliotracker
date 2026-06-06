@@ -249,6 +249,29 @@ a {
   margin-top: 1px;
 }
 
+/* Tappable AppBar title that switches profiles (shown only when >1 profile exists). */
+.profile-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  max-width: 100%;
+}
+.profile-title > :first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-title svg {
+  color: var(--text-dim);
+  flex: none;
+}
+
 .appbar .grow {
   flex: 1;
 }
@@ -1327,6 +1350,33 @@ textarea.input {
   font-size: var(--text-xs);
   color: var(--text-dim);
   margin-top: 2px;
+}
+
+/* Trailing per-row actions (rename / delete) inside a profile row. */
+.setting .row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.setting .row-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.setting .row-actions button:active {
+  color: var(--text);
+}
+.setting .row-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ---------- Lock screen ---------- */

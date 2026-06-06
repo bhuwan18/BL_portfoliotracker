@@ -1,10 +1,11 @@
-import { db } from '../db'
+import { db, getActiveProfileId } from '../db'
 import type { Instrument, Setting, Sip, Transaction } from '../domain/types'
 
 export interface BackupPayload {
   app: 'my-funds'
   version: number
   exportedAt: string
+  profileName?: string // name of the profile this backup was taken from (informational)
   data: {
     instruments: Instrument[]
     transactions: Transaction[]
@@ -13,29 +14,43 @@ export interface BackupPayload {
   }
 }
 
-// Settings that are device-bound and must never travel in a backup: the PIN hash and the
-// biometric (Face ID) credential id. Both are meaningless on another device and would only
-// carry a lock across — so a backup stays portable.
-const DEVICE_BOUND_KEYS = ['pinHash', 'biometricCredId']
+// Settings that must never travel in a backup:
+// - pinHash / biometricCredId: device-bound; would carry a lock to another device.
+// - activeProfileId: device-local pointer into the local profiles table.
+// - holdingsOrder:*: per-profile cosmetic ordering keyed by this device's profile ids.
+const DEVICE_BOUND_KEYS = ['pinHash', 'biometricCredId', 'activeProfileId']
+function isPortableSetting(key: string): boolean {
+  return !DEVICE_BOUND_KEYS.includes(key) && !key.startsWith('holdingsOrder')
+}
 
-// The price cache and the device-bound security settings are intentionally excluded so a
-// backup is portable and never carries a lock to another device.
+// Serializes the ACTIVE profile only: its transactions and SIPs, the instruments they
+// reference (shared reference data), and the portable settings. The price cache and the
+// device-bound/profile-local settings are intentionally excluded so a backup is portable and
+// never carries a lock or the other profile's data to another device.
 export async function buildBackup(): Promise<BackupPayload> {
-  const [instruments, transactions, sips, settings] = await Promise.all([
-    db.instruments.toArray(),
-    db.transactions.toArray(),
-    db.sips.toArray(),
+  const profileId = await getActiveProfileId()
+  const [transactions, sips, settings, profile] = await Promise.all([
+    db.transactions.where('profileId').equals(profileId).toArray(),
+    db.sips.where('profileId').equals(profileId).toArray(),
     db.settings.toArray(),
+    db.profiles.get(profileId),
   ])
+  const referencedIds = new Set<string>()
+  for (const t of transactions) referencedIds.add(t.instrumentId)
+  for (const s of sips) referencedIds.add(s.instrumentId)
+  const instruments = (await db.instruments.bulkGet([...referencedIds])).filter(
+    (i): i is Instrument => !!i,
+  )
   return {
     app: 'my-funds',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
+    profileName: profile?.name,
     data: {
       instruments,
       transactions,
       sips,
-      settings: settings.filter((s) => !DEVICE_BOUND_KEYS.includes(s.key)),
+      settings: settings.filter((s) => isPortableSetting(s.key)),
     },
   }
 }
@@ -56,25 +71,25 @@ export function parseBackup(json: string): BackupPayload {
   return parsed
 }
 
-// Writes a backup payload into IndexedDB. In 'replace' mode the data tables are
-// cleared first (the price cache is left to refresh on next load). The device-bound
-// security settings (pinHash, biometricCredId) are always filtered out so an imported
-// backup never carries a lock onto this device. Older payloads may still carry a
-// `watchlist` array — it is simply ignored.
-export async function applyBackup(
-  payload: BackupPayload,
-  mode: 'replace' | 'merge',
-): Promise<ImportResult> {
+// Writes a backup payload into the ACTIVE profile, replacing that profile's data. Only the
+// active profile's transactions and SIPs are cleared (other profiles are untouched), and the
+// incoming transactions/SIPs are re-tagged to the active profile so they land here regardless
+// of which profile they were exported from. Instruments are shared reference data and are
+// upserted (never cleared). The device-bound/profile-local settings are always filtered out so
+// an imported backup never carries a lock or another device's profile pointers. Older payloads
+// (v1) carrying no `profileId` on rows — or a `watchlist` array — are handled: profileId is set
+// on import, watchlist is ignored.
+export async function applyBackup(payload: BackupPayload): Promise<ImportResult> {
   const { instruments, transactions, sips, settings } = payload.data
-  await db.transaction('rw', [db.instruments, db.transactions, db.sips, db.settings], async () => {
-    if (mode === 'replace') {
-      await Promise.all([db.instruments.clear(), db.transactions.clear(), db.sips.clear()])
-    }
+  const target = await getActiveProfileId()
+  await db.transaction('rw', [db.transactions, db.sips, db.instruments, db.settings], async () => {
+    await db.transactions.where('profileId').equals(target).delete()
+    await db.sips.where('profileId').equals(target).delete()
     await db.instruments.bulkPut(instruments ?? [])
-    await db.transactions.bulkPut(transactions ?? [])
-    await db.sips.bulkPut(sips ?? [])
+    await db.transactions.bulkPut((transactions ?? []).map((t) => ({ ...t, profileId: target })))
+    await db.sips.bulkPut((sips ?? []).map((s) => ({ ...s, profileId: target })))
     if (settings?.length) {
-      await db.settings.bulkPut(settings.filter((s) => !DEVICE_BOUND_KEYS.includes(s.key)))
+      await db.settings.bulkPut(settings.filter((s) => isPortableSetting(s.key)))
     }
   })
   return {
@@ -91,5 +106,6 @@ export async function wipeAllData(): Promise<void> {
     db.sips.clear(),
     db.prices.clear(),
     db.settings.clear(),
+    db.profiles.clear(),
   ])
 }

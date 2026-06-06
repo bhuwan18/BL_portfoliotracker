@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getSetting, setSetting } from '../db'
+import { useActiveProfile } from './useProfiles'
 import type { Holding } from '../domain/types'
 
-// User's manual holdings order, persisted as an array of instrument ids in settings.
-// Absent (null) => fall back to the default value-desc sort from computePortfolio.
-const KEY = 'holdingsOrder'
+// User's manual holdings order, persisted as an array of instrument ids in settings, keyed
+// per profile (`holdingsOrder:<profileId>`) so each profile keeps its own order. Absent (null)
+// => fall back to the default value-desc sort from computePortfolio.
 
 // Apply a saved manual order on top of the default-sorted holdings. Ids present in
 // `order` lead, in saved sequence; holdings new since the last manual sort aren't in
@@ -28,8 +29,14 @@ export function useHoldingsOrder(): {
   save: (ids: string[]) => Promise<void>
   reset: () => Promise<void>
 } {
-  const order = useLiveQuery(() => getSetting<string[] | null>(KEY, null), [], null)
-  const save = (ids: string[]) => setSetting(KEY, ids)
-  const reset = () => setSetting(KEY, null)
+  const { activeId } = useActiveProfile()
+  const key = activeId ? `holdingsOrder:${activeId}` : null
+  const order = useLiveQuery(
+    () => (key ? getSetting<string[] | null>(key, null) : Promise.resolve(null)),
+    [key],
+    null,
+  )
+  const save = (ids: string[]) => (key ? setSetting(key, ids) : Promise.resolve())
+  const reset = () => (key ? setSetting(key, null) : Promise.resolve())
   return { order: order ?? null, isCustom: (order?.length ?? 0) > 0, save, reset }
 }

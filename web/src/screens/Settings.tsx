@@ -6,13 +6,19 @@ import {
   KeyRound,
   Lock,
   Palette,
+  Pencil,
   ScanFace,
   Share2,
   ShieldOff,
   Trash2,
+  User,
+  UserCheck,
+  UserPlus,
 } from 'lucide-react'
 import { db, getSetting, setSetting } from '../db'
 import { usePortfolio } from '../hooks/usePortfolio'
+import { useActiveProfile, useProfiles } from '../hooks/useProfiles'
+import { createProfile, deleteProfile, renameProfile } from '../db/repo'
 import { AppBar, SegmentedControl, Spinner, useToast } from '../components/ui'
 import { Sheet } from '../components/Sheet'
 import { hashPin } from '../lib/pin'
@@ -21,7 +27,7 @@ import { applyTheme, type ThemeMode } from '../lib/theme'
 import { wipeAllData } from '../lib/backup'
 import { shareBackup, importFromCode, ShareNotFoundError, type ShareResult } from '../lib/share'
 import { exportExcel } from '../lib/excel'
-import type { Instrument } from '../domain/types'
+import type { Instrument, Profile, Transaction } from '../domain/types'
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -34,9 +40,20 @@ export function SettingsScreen() {
   const [pinOpen, setPinOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [addProfileOpen, setAddProfileOpen] = useState(false)
+  const [renaming, setRenaming] = useState<Profile | null>(null)
 
   const { summary } = usePortfolio()
-  const transactions = useLiveQuery(() => db.transactions.toArray())
+  const profiles = useProfiles()
+  const { activeId, setActive } = useActiveProfile()
+  // Excel export uses the active profile's holdings (summary) — scope its transactions to match.
+  const transactions = useLiveQuery(
+    () =>
+      activeId === undefined
+        ? Promise.resolve<Transaction[]>([])
+        : db.transactions.where('profileId').equals(activeId).toArray(),
+    [activeId],
+  )
   const instruments = useLiveQuery(() => db.instruments.toArray())
   const pinHash = useLiveQuery(() => getSetting<string | null>('pinHash', null))
   const biometricCredId = useLiveQuery(() => getSetting<string | null>('biometricCredId', null))
@@ -97,6 +114,25 @@ export function SettingsScreen() {
     show('All data cleared.')
   }
 
+  async function onDeleteProfile(p: Profile) {
+    if (profiles.length <= 1) return
+    if (
+      !window.confirm(
+        `Delete "${p.name}" and all of its holdings and transactions? This cannot be undone.`,
+      )
+    ) {
+      return
+    }
+    // If deleting the active profile, switch to another one first so nothing points at a
+    // deleted id while the delete runs.
+    if (p.id === activeId) {
+      const other = profiles.find((x) => x.id !== p.id)
+      if (other) await setActive(other.id)
+    }
+    await deleteProfile(p.id)
+    show('Profile deleted.')
+  }
+
   const themeValue: ThemeMode = theme ?? 'system'
   const hasPin = !!pinHash
   const hasBio = !!biometricCredId
@@ -107,6 +143,35 @@ export function SettingsScreen() {
 
       <div className="screen">
         <div className="section">
+          <div className="section-title">Profiles</div>
+          <div className="list">
+            {profiles.map((p) => (
+              <ProfileRow
+                key={p.id}
+                profile={p}
+                active={p.id === activeId}
+                canDelete={profiles.length > 1}
+                onSwitch={() => void setActive(p.id)}
+                onRename={() => setRenaming(p)}
+                onDelete={() => void onDeleteProfile(p)}
+              />
+            ))}
+
+            {profiles.length < 2 && (
+              <button className="setting" type="button" onClick={() => setAddProfileOpen(true)}>
+                <span className="ic">
+                  <UserPlus size={18} />
+                </span>
+                <span className="lbl">
+                  <div className="t">Add profile</div>
+                  <div className="d">Track a separate portfolio on this device</div>
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="section">
           <div className="section-title">Data</div>
           <div className="list">
             <button className="setting" type="button" onClick={() => setShareOpen(true)}>
@@ -115,7 +180,7 @@ export function SettingsScreen() {
               </span>
               <span className="lbl">
                 <div className="t">Share via key</div>
-                <div className="d">Get a key to copy your data to another device</div>
+                <div className="d">Get a key to copy this profile to another device</div>
               </span>
             </button>
 
@@ -125,7 +190,7 @@ export function SettingsScreen() {
               </span>
               <span className="lbl">
                 <div className="t">Import from key</div>
-                <div className="d">Replace this device's data using a key</div>
+                <div className="d">Replace this profile's data using a key</div>
               </span>
             </button>
 
@@ -243,9 +308,9 @@ export function SettingsScreen() {
           <div className="card">
             <div style={{ fontWeight: 800, fontSize: 'var(--text-lg)' }}>B Funds</div>
             <p className="help" style={{ marginTop: 8 }}>
-              Your data lives on this device. When you create a share key, a copy is uploaded to
-              our server in plain text so another device can import it. Keys stay valid for 30 days
-              and can be reused — share them only with people you trust.
+              Your data lives on this device. When you create a share key, a copy of the current
+              profile is uploaded to our server in plain text so another device can import it. Keys
+              stay valid for 30 days and can be reused — share them only with people you trust.
             </p>
             <p className="help" style={{ marginTop: 6 }}>
               Data: mfapi.in (NAV) and Yahoo Finance (stocks).
@@ -267,8 +332,187 @@ export function SettingsScreen() {
       <ShareSheet open={shareOpen} onClose={() => setShareOpen(false)} show={show} />
       <ImportSheet open={importOpen} onClose={() => setImportOpen(false)} show={show} />
 
+      <AddProfileSheet
+        open={addProfileOpen}
+        onClose={() => setAddProfileOpen(false)}
+        onAdded={() => show('Profile created.')}
+      />
+      <RenameProfileSheet
+        profile={renaming}
+        onClose={() => setRenaming(null)}
+        onRenamed={() => show('Profile renamed.')}
+      />
+
       {node}
     </>
+  )
+}
+
+// A profile row: tap (or Enter/Space) to make it active, with trailing rename/delete actions.
+// Rendered as a div role="button" so the action buttons can nest legally inside it.
+function ProfileRow({
+  profile,
+  active,
+  canDelete,
+  onSwitch,
+  onRename,
+  onDelete,
+}: {
+  profile: Profile
+  active: boolean
+  canDelete: boolean
+  onSwitch: () => void
+  onRename: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div
+      className="setting"
+      role="button"
+      tabIndex={0}
+      aria-pressed={active}
+      onClick={onSwitch}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSwitch()
+        }
+      }}
+    >
+      <span className="ic" style={active ? { color: 'var(--accent)' } : undefined}>
+        {active ? <UserCheck size={18} /> : <User size={18} />}
+      </span>
+      <span className="lbl">
+        <div className="t">{profile.name}</div>
+        <div className="d">{active ? 'Active profile' : 'Tap to switch'}</div>
+      </span>
+      <span className="row-actions" onClick={(e) => e.stopPropagation()}>
+        <button type="button" aria-label={`Rename ${profile.name}`} onClick={onRename}>
+          <Pencil size={16} />
+        </button>
+        {canDelete && (
+          <button
+            type="button"
+            aria-label={`Delete ${profile.name}`}
+            style={{ color: 'var(--neg)' }}
+            onClick={onDelete}
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </span>
+    </div>
+  )
+}
+
+function AddProfileSheet({
+  open,
+  onClose,
+  onAdded,
+}: {
+  open: boolean
+  onClose: () => void
+  onAdded: (id: string) => void
+}) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function close() {
+    setName('')
+    setBusy(false)
+    onClose()
+  }
+
+  async function onSave() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setBusy(true)
+    const id = await createProfile(trimmed)
+    onAdded(id)
+    close()
+  }
+
+  return (
+    <Sheet open={open} onClose={close} title="Add profile">
+      <div className="field">
+        <label>Profile name</label>
+        <input
+          className="input"
+          type="text"
+          autoFocus
+          maxLength={40}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Family"
+        />
+        <div className="help">Each profile keeps its own holdings and transactions.</div>
+      </div>
+      <div className="btn-row">
+        <button className="btn ghost" type="button" onClick={close} disabled={busy}>
+          Cancel
+        </button>
+        <button className="btn primary" type="button" onClick={onSave} disabled={busy || !name.trim()}>
+          {busy ? <Spinner /> : 'Create'}
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+function RenameProfileSheet({
+  profile,
+  onClose,
+  onRenamed,
+}: {
+  profile: Profile | null
+  onClose: () => void
+  onRenamed: () => void
+}) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  // Re-seed the input whenever a different profile is opened for rename.
+  useEffect(() => {
+    if (profile) setName(profile.name)
+  }, [profile])
+
+  function close() {
+    setBusy(false)
+    onClose()
+  }
+
+  async function onSave() {
+    const trimmed = name.trim()
+    if (!trimmed || !profile) return
+    setBusy(true)
+    await renameProfile(profile.id, trimmed)
+    onRenamed()
+    close()
+  }
+
+  return (
+    <Sheet open={!!profile} onClose={close} title="Rename profile">
+      <div className="field">
+        <label>Profile name</label>
+        <input
+          className="input"
+          type="text"
+          autoFocus
+          maxLength={40}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Profile name"
+        />
+      </div>
+      <div className="btn-row">
+        <button className="btn ghost" type="button" onClick={close} disabled={busy}>
+          Cancel
+        </button>
+        <button className="btn primary" type="button" onClick={onSave} disabled={busy || !name.trim()}>
+          {busy ? <Spinner /> : 'Save'}
+        </button>
+      </div>
+    </Sheet>
   )
 }
 
@@ -436,9 +680,9 @@ function ShareSheet({
               {result.code}
             </div>
             <div className="help">
-              Enter this key on another device under "Import from key". It stays valid for 30 days
-              and can be used more than once. Anyone with this key can read your data, so share it
-              only with people you trust.
+              Enter this key on another device under "Import from key" to copy this profile there.
+              It stays valid for 30 days and can be used more than once. Anyone with this key can
+              read your data, so share it only with people you trust.
             </div>
           </div>
           <div className="btn-row">
@@ -482,7 +726,7 @@ function ImportSheet({
     }
     if (
       !window.confirm(
-        'This will ERASE everything on this device and replace it with the shared data. This cannot be undone. Continue?',
+        'This will ERASE the data in your current profile and replace it with the shared data. This cannot be undone. Continue?',
       )
     ) {
       return
@@ -528,7 +772,7 @@ function ImportSheet({
             {error}
           </div>
         ) : (
-          <div className="help">This replaces all data on this device with the shared data.</div>
+          <div className="help">This replaces the data in your current profile with the shared data.</div>
         )}
       </div>
 

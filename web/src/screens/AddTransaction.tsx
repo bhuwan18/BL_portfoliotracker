@@ -13,6 +13,7 @@ import {
 } from '../api/instrument'
 import { db } from '../db'
 import { addSip, addTransaction, runDueSips } from '../db/repo'
+import { useMarket } from '../store/market'
 import { FREQUENCY_LABEL, lastInstallmentDate } from '../domain/sip'
 import type { Instrument, Sip, SipFrequency, TxnKind } from '../domain/types'
 import { formatDate, formatINR, formatUnits, todayISO } from '../lib/format'
@@ -73,6 +74,7 @@ export function AddTransactionScreen() {
   const location = useLocation()
   const presetId = (location.state as { instrumentId?: string } | null)?.instrumentId
   const { show, node } = useToast()
+  const refreshOne = useMarket((s) => s.refreshOne)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [building, setBuilding] = useState(!!presetId)
@@ -230,6 +232,7 @@ export function AddTransactionScreen() {
         })
         await runDueSips()
         show('SIP created')
+        void refreshOne(instrument)
         navigate(-1)
       } catch {
         show('Could not create SIP')
@@ -247,6 +250,7 @@ export function AddTransactionScreen() {
         units: computedUnits,
         price: priceVal,
       })
+      void refreshOne(instrument)
       navigate(-1)
     } catch {
       show('Could not save transaction')

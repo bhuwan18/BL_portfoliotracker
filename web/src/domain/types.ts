@@ -20,6 +20,7 @@ export type TxnKind = 'buy' | 'sell'
 export interface Transaction {
   id: string
   instrumentId: string
+  profileId: string // which portfolio profile this belongs to
   kind: TxnKind
   date: string // ISO yyyy-mm-dd
   units: number
@@ -35,6 +36,7 @@ export type SipFrequency = 'weekly' | 'fortnightly' | 'monthly'
 export interface Sip {
   id: string
   instrumentId: string
+  profileId: string // which portfolio profile this belongs to
   amount: number // INR per installment
   frequency: SipFrequency
   startDate: string // ISO
@@ -56,6 +58,14 @@ export interface PriceSnapshot {
 export interface Setting {
   key: string
   value: unknown
+}
+
+// A portfolio profile. The primary profile always exists; a user may add one secondary
+// profile to keep a separate set of transactions/SIPs. Instruments and prices are shared.
+export interface Profile {
+  id: string
+  name: string
+  createdAt: number
 }
 
 // ---- Computed ----

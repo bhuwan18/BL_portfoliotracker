@@ -27,6 +27,14 @@ export function Sheet({
   const sheetRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
 
+  // Keep the latest onClose in a ref so the effect below can stay keyed on
+  // `open` alone. Consumers commonly pass a fresh onClose each render; if the
+  // effect depended on it, it would re-run (and re-focus the dialog) on every
+  // parent re-render — stealing focus from an active input and dismissing the
+  // on-screen keyboard mid-typing.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
     if (!open) return
     // Remember what had focus so we can restore it when the sheet closes
@@ -34,7 +42,7 @@ export function Sheet({
     const prevFocus = document.activeElement as HTMLElement | null
 
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
@@ -58,7 +66,7 @@ export function Sheet({
       viewport?.removeEventListener('scroll', sync)
       prevFocus?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

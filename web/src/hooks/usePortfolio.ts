@@ -1,8 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef } from 'react'
 import { db } from '../db'
-import { runDueSips } from '../db/repo'
-import { useMarket } from '../store/market'
+import { ensureProfiles, runDueSips } from '../db/repo'
+import { useActiveProfile } from './useProfiles'
+import { useMarket, pricesAreStale } from '../store/market'
 import { computeHolding, computePortfolio } from '../domain/portfolio'
 import type {
   Holding,
@@ -31,10 +32,20 @@ export function usePortfolio(): {
   instruments: Instrument[]
   loading: boolean
 } {
+  const { activeId } = useActiveProfile()
+  // Instruments are shared reference data; only transactions are profile-scoped. While the
+  // active profile is still resolving (activeId === undefined) the txn query returns undefined
+  // so `loading` stays true and the screen shows its spinner instead of flashing empty.
   const instruments = useLiveQuery(() => db.instruments.toArray())
-  const transactions = useLiveQuery(() => db.transactions.toArray())
+  const transactions = useLiveQuery(
+    () =>
+      activeId === undefined
+        ? Promise.resolve<Transaction[]>([])
+        : db.transactions.where('profileId').equals(activeId).toArray(),
+    [activeId],
+  )
   const prices = useMarket((s) => s.prices)
-  const loading = instruments === undefined || transactions === undefined
+  const loading = activeId === undefined || instruments === undefined || transactions === undefined
 
   const summary = useMemo(
     () =>
@@ -57,13 +68,18 @@ export function useInstrument(instrumentId: string | undefined): Instrument | un
 }
 
 export function useInstrumentTxns(instrumentId: string | undefined): Transaction[] {
+  const { activeId } = useActiveProfile()
   return (
     useLiveQuery(
       () =>
-        instrumentId
-          ? db.transactions.where('instrumentId').equals(instrumentId).toArray()
+        instrumentId && activeId !== undefined
+          ? db.transactions
+              .where('instrumentId')
+              .equals(instrumentId)
+              .and((t) => t.profileId === activeId)
+              .toArray()
           : Promise.resolve<Transaction[]>([]),
-      [instrumentId],
+      [instrumentId, activeId],
     ) ?? []
   )
 }
@@ -78,14 +94,21 @@ export function useHolding(instrumentId: string | undefined): Holding | null {
   }, [instrument, txns, price])
 }
 
-// Instruments worth pricing: anything currently held.
+// Instruments worth pricing: anything currently held in the active profile.
 export function useTrackedInstruments(): Instrument[] {
+  const { activeId } = useActiveProfile()
   const instruments = useLiveQuery(() => db.instruments.toArray())
-  const txns = useLiveQuery(() => db.transactions.toArray())
+  const txns = useLiveQuery(
+    () =>
+      activeId === undefined
+        ? Promise.resolve<Transaction[]>([])
+        : db.transactions.where('profileId').equals(activeId).toArray(),
+    [activeId],
+  )
   return useMemo(() => {
-    if (!instruments) return []
+    if (!instruments || txns === undefined) return []
     const ids = new Set<string>()
-    for (const t of txns ?? []) ids.add(t.instrumentId)
+    for (const t of txns) ids.add(t.instrumentId)
     return instruments.filter((i) => ids.has(i.id))
   }, [instruments, txns])
 }
@@ -103,6 +126,9 @@ export function useBootstrap(): void {
       await hydrate()
       if (!ran.current) {
         ran.current = true
+        // Profiles must exist before profile-scoped reads/writes resolve meaningfully, and
+        // before SIPs materialize (each generated txn inherits its SIP's profileId).
+        await ensureProfiles().catch(() => {})
         await runDueSips().catch(() => {})
       }
     })()
@@ -113,6 +139,10 @@ export function useBootstrap(): void {
     const key = tracked.map((i) => i.id).sort().join('|')
     if (key === refreshedFor.current) return
     refreshedFor.current = key
-    void refresh(tracked)
+    // Auto-refresh on load only when prices are stale (>2h since the last bulk refresh).
+    // The manual button still calls refresh() directly, bypassing this gate.
+    void (async () => {
+      if (await pricesAreStale()) void refresh(tracked)
+    })()
   }, [tracked, refresh])
 }
