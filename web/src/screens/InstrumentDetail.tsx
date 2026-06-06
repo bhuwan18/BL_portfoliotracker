@@ -110,6 +110,7 @@ export function InstrumentDetailScreen() {
     <>
       <AppBar title={instrument.name} subtitle={instrument.category} back />
 
+      <div className="detail-page">
       <div className="screen section" style={{ marginTop: 6 }}>
         <div className="card">
           <div className="row" style={{ border: 'none', background: 'transparent', padding: 0, gap: 12 }}>
@@ -311,6 +312,7 @@ export function InstrumentDetailScreen() {
         >
           <Plus size={18} /> Add transaction
         </button>
+      </div>
       </div>
 
       <EditTransactionSheet

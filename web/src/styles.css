@@ -1450,6 +1450,33 @@ textarea.input {
   gap: 8px;
 }
 
+/* ---------- Instrument detail page (scoped tightening) ----------
+   This page packs a lot (header card, position, transactions) into one scroll, so it
+   runs tighter than the default section/card rhythm used elsewhere. Scoped to
+   .detail-page so other screens keep their roomier spacing. */
+.detail-page .section {
+  margin-top: 14px;
+}
+.detail-page .section-title {
+  margin-bottom: 7px;
+}
+.detail-page .card {
+  padding: 12px 14px;
+}
+.detail-page .summary-2 {
+  gap: 9px 16px;
+}
+.detail-page .list {
+  gap: 8px;
+}
+.detail-page .row.txn-row {
+  padding: 11px 12px;
+}
+.detail-page .detail-perf {
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
 /* ---------- Detail header ---------- */
 .detail-price {
   display: flex;
