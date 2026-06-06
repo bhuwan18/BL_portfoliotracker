@@ -231,8 +231,10 @@ function Hero({
         >
           {mode === 'xirr' ? (
             <>
-              XIRR {(summary.xirr ?? 0) >= 0 ? '▲' : '▼'}{' '}
-              {summary.xirr != null ? formatPct(summary.xirr, false) : '—'}
+              XIRR{' '}
+              {summary.xirr != null
+                ? `${summary.xirr >= 0 ? '▲' : '▼'} ${formatPct(summary.xirr, false)}`
+                : '—'}
             </>
           ) : (
             <>

@@ -90,6 +90,30 @@
   color-scheme: light;
 }
 
+/* ============================================================
+   Dynamic Type — follow the OS text-size / accessibility setting
+   ============================================================
+   The whole type scale (--text-* above) is in rem, so it all keys off the root
+   font-size. By default that's a fixed 16px. On iOS/macOS Safari we anchor the
+   root to `-apple-system-body`, the system "body" font whose size tracks the
+   user's Settings → Display & Brightness → Text Size (and the larger
+   Accessibility → Larger Text sizes). Increasing that setting scales every
+   rem-based size in the app proportionally; decreasing it shrinks them.
+
+   The `@supports (font: -apple-system-body)` guard is true only on WebKit, so
+   other browsers keep the fixed 16px baseline (Android Chrome applies its own
+   page zoom for the system font-size setting). The `font` shorthand also sets
+   <html>'s font-family to the system UI font, but <body> re-asserts var(--font)
+   below, so the app's font stack is unchanged — only the size tracks the OS. */
+html {
+  font-size: 16px;
+}
+@supports (font: -apple-system-body) {
+  html {
+    font: -apple-system-body;
+  }
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -135,7 +159,10 @@ input,
 select,
 textarea {
   font-family: inherit;
-  font-size: var(--text-lg); /* prevents iOS zoom on focus */
+  /* Scales with Dynamic Type, but never below 16px — under that, iOS zooms the
+     page on focus. The floor matters now that the root font-size can shrink at
+     the smallest OS Text Size setting (see the Dynamic Type block above). */
+  font-size: max(var(--text-lg), 16px);
 }
 
 a {
