@@ -12,8 +12,8 @@ import {
 } from '../api/instrument'
 import { db } from '../db'
 import { addSip, addTransaction, runDueSips } from '../db/repo'
-import { FREQUENCY_LABEL } from '../domain/sip'
-import type { Instrument, SipFrequency, TxnKind } from '../domain/types'
+import { FREQUENCY_LABEL, lastInstallmentDate } from '../domain/sip'
+import type { Instrument, Sip, SipFrequency, TxnKind } from '../domain/types'
 import { formatDate, formatINR, formatUnits, todayISO } from '../lib/format'
 
 type EntryMode = 'amount' | 'units'
@@ -49,6 +49,7 @@ export function AddTransactionScreen() {
   const [unitsInput, setUnitsInput] = useState('')
   const [price, setPrice] = useState('')
   const [frequency, setFrequency] = useState<SipFrequency>('monthly')
+  const [installments, setInstallments] = useState('')
   const [pricing, setPricing] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -128,10 +129,19 @@ export function AddTransactionScreen() {
   const validUnits = Number.isFinite(computedUnits) && computedUnits > 0
   const validPrice = Number.isFinite(priceVal) && priceVal > 0
   const validAmount = Number.isFinite(amountVal) && amountVal > 0
+
+  // Installments are optional (blank = ongoing). When given, must be a whole number ≥ 1.
+  const installmentsVal = num(installments)
+  const installmentsEntered = installments.trim() !== ''
+  const validInstallments =
+    !installmentsEntered ||
+    (Number.isFinite(installmentsVal) && installmentsVal >= 1 && Number.isInteger(installmentsVal))
+  const installmentCount = installmentsEntered ? Math.floor(installmentsVal) : undefined
+
   const canSave =
     !!instrument &&
     !saving &&
-    (isSip ? validAmount && date.length > 0 : validUnits && validPrice)
+    (isSip ? validAmount && date.length > 0 && validInstallments : validUnits && validPrice)
 
   const total = validUnits && validPrice ? computedUnits * priceVal : NaN
   const priceLabel = isMf ? 'NAV' : 'Price'
@@ -139,10 +149,16 @@ export function AddTransactionScreen() {
   async function handleSave() {
     if (!instrument) return
     if (kind === 'sip') {
-      if (!validAmount || !date) return
+      if (!validAmount || !date || !validInstallments) return
       setSaving(true)
       try {
-        await addSip({ instrument, amount: amountVal, frequency, startDate: date })
+        await addSip({
+          instrument,
+          amount: amountVal,
+          frequency,
+          startDate: date,
+          installments: installmentCount,
+        })
         await runDueSips()
         show('SIP created')
         navigate(-1)
@@ -261,18 +277,44 @@ export function AddTransactionScreen() {
                   <SegmentedControl options={FREQ_OPTIONS} value={frequency} onChange={setFrequency} />
                 </div>
 
+                <div className="field">
+                  <label>Number of installments</label>
+                  <input
+                    className="input"
+                    inputMode="numeric"
+                    placeholder="Ongoing"
+                    value={installments}
+                    onChange={(e) => setInstallments(e.target.value)}
+                  />
+                  <div className="help">
+                    {installmentsEntered && !validInstallments
+                      ? 'Enter a whole number of installments (1 or more).'
+                      : 'Leave blank for an ongoing SIP. Set a count to record a past or closed plan.'}
+                  </div>
+                </div>
+
                 <div className="card summary-card" style={{ marginBottom: 12 }}>
                   <div className="summary-row">
                     <div className="summary-info">
                       <div className="summary-label">SIP plan</div>
                       <div className="summary-sub">
-                        {validAmount ? formatINR(amountVal) : '—'} · {FREQUENCY_LABEL[frequency]} · from{' '}
-                        {formatDate(date)}
+                        {validAmount ? formatINR(amountVal) : '—'} · {FREQUENCY_LABEL[frequency]} ·{' '}
+                        {installmentCount && validInstallments
+                          ? `${installmentCount} installments`
+                          : 'ongoing'}
                       </div>
                     </div>
+                    {installmentCount && validInstallments && validAmount ? (
+                      <div className="summary-total tnum">{formatINR(amountVal * installmentCount)}</div>
+                    ) : null}
                   </div>
                   <div className="help" style={{ marginTop: 8 }}>
-                    Each installment is recorded automatically using that date's NAV.
+                    {installmentCount && validInstallments
+                      ? `${formatDate(date)} → ${formatDate(
+                          lastInstallmentDate({ startDate: date, frequency, installments: installmentCount } as Sip) ??
+                            date,
+                        )}. Each installment is recorded automatically using that date's NAV.`
+                      : `From ${formatDate(date)}. Each installment is recorded automatically using that date's NAV.`}
                   </div>
                 </div>
               </>

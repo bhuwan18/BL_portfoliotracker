@@ -38,6 +38,7 @@ export interface Sip {
   amount: number // INR per installment
   frequency: SipFrequency
   startDate: string // ISO
+  installments?: number // total planned installments; omitted = ongoing/open-ended
   active: boolean
   lastRun?: string // ISO date of the last materialized installment
   createdAt: number

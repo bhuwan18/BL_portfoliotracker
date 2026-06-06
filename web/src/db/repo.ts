@@ -1,6 +1,6 @@
 import { db, uid } from './index'
 import type { Instrument, Sip, SipFrequency, Transaction, TxnKind } from '../domain/types'
-import { dueInstallments } from '../domain/sip'
+import { dueInstallments, isComplete } from '../domain/sip'
 import { priceOnDate } from '../api/instrument'
 
 export async function getOrCreateInstrument(inst: Instrument): Promise<Instrument> {
@@ -52,23 +52,40 @@ export async function pruneInstrument(instrumentId: string): Promise<void> {
   if (txnCount === 0) await db.instruments.delete(instrumentId)
 }
 
+// Delete an entire holding: every transaction, any SIPs, the cached price and the
+// instrument record — all in one atomic transaction so a holding never half-disappears.
+// (A "holding" isn't a stored row; it's the instrument plus its transactions, so the
+// caller-facing delete has to clear all of them.)
+export async function deleteHolding(instrumentId: string): Promise<void> {
+  await db.transaction('rw', db.transactions, db.sips, db.prices, db.instruments, async () => {
+    await db.transactions.where('instrumentId').equals(instrumentId).delete()
+    await db.sips.where('instrumentId').equals(instrumentId).delete()
+    await db.prices.delete(instrumentId)
+    await db.instruments.delete(instrumentId)
+  })
+}
+
 export interface NewSipInput {
   instrument: Instrument
   amount: number
   frequency: SipFrequency
   startDate: string
+  installments?: number // total planned installments; omitted = ongoing
   active?: boolean
 }
 
 export async function addSip(input: NewSipInput): Promise<string> {
   await getOrCreateInstrument(input.instrument)
   const id = uid('s_')
+  const installments =
+    input.installments && input.installments > 0 ? Math.floor(input.installments) : undefined
   const sip: Sip = {
     id,
     instrumentId: input.instrument.id,
     amount: input.amount,
     frequency: input.frequency,
     startDate: input.startDate,
+    installments,
     active: input.active ?? true,
     createdAt: Date.now(),
   }
@@ -113,9 +130,13 @@ export async function runDueSips(): Promise<number> {
         sipId: sip.id,
         createdAt: Date.now(),
       })
+      sip.lastRun = date
       await db.sips.update(sip.id, { lastRun: date })
       created++
     }
+    // A fixed-term SIP that has run its final installment is done — deactivate it
+    // so it stops generating and reads as a closed (past) plan.
+    if (isComplete(sip)) await db.sips.update(sip.id, { active: false })
   }
   return created
 }

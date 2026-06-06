@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom'
-import { Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
-import { useMemo } from 'react'
+import { ArrowUpDown, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
 import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
 import { orderHoldings, useHoldingsOrder } from '../hooks/useHoldingsOrder'
 import { useMarket } from '../store/market'
 import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
 import { SortableHoldings } from '../components/SortableHoldings'
+import { DeleteHoldingSheet } from '../components/DeleteHoldingSheet'
 import { formatINR, formatPct, formatSignedINR, sign } from '../lib/format'
+import type { Holding } from '../domain/types'
 
 export function PortfolioScreen() {
   const navigate = useNavigate()
@@ -17,6 +19,8 @@ export function PortfolioScreen() {
   const refresh = useMarket((s) => s.refresh)
   const [mode, toggleMode] = useReturnMode()
   const { order, isCustom, save, reset } = useHoldingsOrder()
+  const [editing, setEditing] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<Holding | null>(null)
 
   const holdings = useMemo(
     () => orderHoldings(summary.holdings, order),
@@ -83,9 +87,25 @@ export function PortfolioScreen() {
           <div className="screen section">
             <div className="section-title">
               Holdings
-              {isCustom && (
-                <button type="button" className="link" onClick={() => void reset()}>
-                  Reset to value order
+              {editing ? (
+                <span className="section-actions">
+                  {isCustom && (
+                    <button type="button" className="link" onClick={() => void reset()}>
+                      Reset to value order
+                    </button>
+                  )}
+                  <button type="button" className="link" onClick={() => setEditing(false)}>
+                    Done
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="icon-link"
+                  aria-label="Reorder holdings"
+                  onClick={() => setEditing(true)}
+                >
+                  <ArrowUpDown size={15} aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -93,12 +113,19 @@ export function PortfolioScreen() {
               holdings={holdings}
               mode={mode}
               onToggleMode={toggleMode}
+              editing={editing}
+              onRequestEdit={() => setEditing(true)}
               onReorder={(ids) => void save(ids)}
               onOpen={(id) => navigate(`/instrument/${encodeURIComponent(id)}`)}
+              onDelete={(id) =>
+                setPendingDelete(holdings.find((h) => h.instrument.id === id) ?? null)
+              }
             />
           </div>
         </>
       )}
+
+      <DeleteHoldingSheet holding={pendingDelete} onClose={() => setPendingDelete(null)} />
     </>
   )
 }

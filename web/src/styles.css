@@ -176,6 +176,33 @@ a {
   -webkit-appearance: none;
   appearance: none;
 }
+.section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+/* Subtle header affordance that reveals the drag handles (enters reorder mode). */
+.section-title .icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  margin: -4px; /* preserve the tap target without nudging the title's baseline */
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.section-title .icon-link:active {
+  color: var(--text);
+}
+.section-title .icon-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 /* ---------- Header ---------- */
 .appbar {
@@ -674,9 +701,51 @@ a {
   gap: 6px;
   will-change: transform;
 }
-.sortable-body {
+/* The swipe wrapper is the flex slot; it clips the card as it slides left to expose the
+   Delete action beneath. Clipping is gated to edit mode so a holding's keyboard focus
+   ring isn't cropped during normal use. */
+.swipe-wrap {
   flex: 1;
   min-width: 0;
+  position: relative;
+  border-radius: var(--radius);
+}
+.sortable-item.editing .swipe-wrap {
+  overflow: hidden;
+}
+.sortable-body {
+  position: relative;
+  z-index: 1;
+}
+/* In edit mode the browser keeps vertical panning (page scroll); horizontal movement is
+   delivered to us as the swipe gesture. */
+.sortable-item.editing .sortable-body {
+  touch-action: pan-y;
+}
+/* Delete action behind the card. It fills the whole track (so the card's rounded corners
+   reveal red cleanly with no seam), but its icon+label are pinned into the ~88px strip the
+   swipe exposes on the right. */
+.swipe-delete {
+  position: absolute;
+  inset: 0;
+  padding-left: calc(100% - 88px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  background: var(--badge-neg-bg);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.swipe-delete:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
 }
 .drag-handle {
   flex: none;
@@ -693,6 +762,18 @@ a {
   touch-action: none;
   -webkit-appearance: none;
   appearance: none;
+  /* Slide in when edit mode reveals the handle column. */
+  animation: handle-in 160ms ease;
+}
+@keyframes handle-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .drag-handle:active {
   cursor: grabbing;
@@ -706,9 +787,13 @@ a {
   cursor: grabbing;
 }
 .sortable-item.dragging .holding-card {
-  box-shadow: var(--shadow, 0 8px 24px rgb(0 0 0 / 0.18));
   background: var(--surface-2);
   border-color: var(--border);
+}
+/* Lift shadow goes on the wrapper, not the card: the wrapper clips its children in edit
+   mode (overflow:hidden), which would crop a shadow drawn on the card inside it. */
+.sortable-item.dragging .swipe-wrap {
+  box-shadow: var(--shadow, 0 8px 24px rgb(0 0 0 / 0.18));
 }
 
 /* ---------- Buttons ---------- */

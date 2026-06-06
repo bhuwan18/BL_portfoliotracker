@@ -1,26 +1,47 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { GripVertical } from 'lucide-react'
+import { GripVertical, Trash2 } from 'lucide-react'
 import type { Holding } from '../domain/types'
 import type { ReturnMode } from '../hooks/useReturnMode'
 import { HoldingRow } from './HoldingRow'
 
+// Long-press duration (ms) before a press on a row enters edit mode, and the movement
+// (px) that cancels it as a scroll/tap instead.
+const LONG_PRESS_MS = 450
+const LONG_PRESS_SLOP = 10
+
+// Swipe-to-reveal (edit mode): px of horizontal travel before the gesture locks to the
+// swipe axis, the width of the revealed Delete action, and how far you must drag before
+// release snaps it open.
+const SWIPE_SLOP = 8
+const SWIPE_REVEAL = 88
+const SWIPE_TRIGGER = 52
+
 // Drag-to-reorder holdings list. Hand-rolled on Pointer Events so it works for touch,
-// mouse and pen alike (no library). A grip handle owns the gesture so tapping the card
-// still navigates. Reorder math uses each row's measured rect, so variable-height rows
-// (wrapping names, "No price") shift exactly. Arrow keys on a focused handle move a row
-// for keyboard users.
+// mouse and pen alike (no library). Reordering is an occasional action, so the grip
+// handles stay hidden until `editing` is on (toggled from the header, or by long-pressing
+// a row, which calls onRequestEdit). In edit mode the grip owns the drag gesture and row
+// taps are inert; otherwise a tap opens the holding. Reorder math uses each row's measured
+// rect, so variable-height rows (wrapping names, "No price") shift exactly. Arrow keys on a
+// focused handle move a row for keyboard users. In edit mode a horizontal swipe-left on
+// a row reveals a Delete action (onDelete), which the parent confirms before deleting.
 export function SortableHoldings({
   holdings,
   onReorder,
   onOpen,
+  onDelete,
   mode,
   onToggleMode,
+  editing,
+  onRequestEdit,
 }: {
   holdings: Holding[]
   onReorder: (orderedIds: string[]) => void
   onOpen: (id: string) => void
+  onDelete: (id: string) => void
   mode: ReturnMode
   onToggleMode: () => void
+  editing: boolean
+  onRequestEdit: () => void
 }) {
   const [items, setItems] = useState<Holding[]>(holdings)
   const draggingRef = useRef(false)
@@ -134,12 +155,138 @@ export function SortableHoldings({
     )
   }
 
+  // Row currently revealing its Delete action, plus the live X-offset of the row being
+  // swiped right now (only one at a time). Both reset whenever edit mode turns off.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [swipeX, setSwipeX] = useState<{ id: string; x: number } | null>(null)
+  useEffect(() => {
+    if (!editing) {
+      setOpenId(null)
+      setSwipeX(null)
+    }
+  }, [editing])
+
+  // Long-press on a row (outside edit mode) enters edit mode. We then swallow the click
+  // that the same press would otherwise fire so it doesn't navigate into the holding.
+  const longPress = useRef<{ timer: number; x: number; y: number } | null>(null)
+  const suppressOpen = useRef(false)
+  const cancelLongPress = () => {
+    if (longPress.current) {
+      clearTimeout(longPress.current.timer)
+      longPress.current = null
+    }
+  }
+
+  // Active horizontal swipe (edit mode). `axis` stays 'none' until movement passes the
+  // slop, then locks to 'x' (we own it) or 'y' (let the page scroll). `start` is the
+  // offset the row began at, so a swipe continues smoothly from an already-open row.
+  const swipe = useRef<{
+    id: string
+    startX: number
+    startY: number
+    axis: 'none' | 'x' | 'y'
+    pointerId: number
+    start: number
+  } | null>(null)
+
+  const handleBodyPointerDown = (e: ReactPointerEvent<HTMLDivElement>, id: string) => {
+    if (!editing) {
+      // Outside edit mode: arm the long-press-to-edit timer.
+      suppressOpen.current = false // clear any stale suppression from a prior press
+      const x = e.clientX
+      const y = e.clientY
+      longPress.current = {
+        x,
+        y,
+        timer: window.setTimeout(() => {
+          suppressOpen.current = true
+          longPress.current = null
+          onRequestEdit()
+        }, LONG_PRESS_MS),
+      }
+      return
+    }
+    // Edit mode: begin a potential swipe. Close any other open row first.
+    if (openId && openId !== id) setOpenId(null)
+    swipe.current = {
+      id,
+      startX: e.clientX,
+      startY: e.clientY,
+      axis: 'none',
+      pointerId: e.pointerId,
+      start: openId === id ? -SWIPE_REVEAL : 0,
+    }
+  }
+
+  const handleBodyPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!editing) {
+      const lp = longPress.current
+      if (!lp) return
+      if (Math.abs(e.clientX - lp.x) > LONG_PRESS_SLOP || Math.abs(e.clientY - lp.y) > LONG_PRESS_SLOP) {
+        cancelLongPress()
+      }
+      return
+    }
+    const s = swipe.current
+    if (!s) return
+    const dx = e.clientX - s.startX
+    const dy = e.clientY - s.startY
+    if (s.axis === 'none') {
+      if (Math.abs(dx) < SWIPE_SLOP && Math.abs(dy) < SWIPE_SLOP) return
+      s.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+      if (s.axis === 'y') {
+        swipe.current = null // vertical intent — release to the page scroller
+        return
+      }
+      e.currentTarget.setPointerCapture(s.pointerId)
+    }
+    if (s.axis !== 'x') return
+    // Clamp: never past closed (0); a little rubber-band past the reveal width.
+    const x = Math.max(-SWIPE_REVEAL - 20, Math.min(0, s.start + dx))
+    setSwipeX({ id: s.id, x })
+    e.preventDefault()
+  }
+
+  const handleBodyPointerUp = (id: string) => {
+    if (!editing) {
+      cancelLongPress()
+      return
+    }
+    const s = swipe.current
+    swipe.current = null
+    const current = swipeX && swipeX.id === id ? swipeX.x : s?.start ?? 0
+    setSwipeX(null)
+    if (!s || s.axis !== 'x') {
+      // A tap (not a swipe) on an open row closes it; otherwise leave state as-is.
+      if (s && openId === id) setOpenId(null)
+      return
+    }
+    setOpenId(current <= -SWIPE_TRIGGER ? id : null)
+  }
+
+  const handleDeleteClick = (id: string) => {
+    setOpenId(null)
+    setSwipeX(null)
+    onDelete(id)
+  }
+
+  const handleOpen = (id: string) => {
+    if (suppressOpen.current) {
+      suppressOpen.current = false
+      return
+    }
+    if (editing) return
+    onOpen(id)
+  }
+
   return (
     <div className="list">
       {items.map((h) => {
         const id = h.instrument.id
         const dy = offsets.get(id) ?? 0
         const isDragged = dragId === id
+        const swiping = swipeX?.id === id
+        const tx = swiping ? swipeX.x : openId === id ? -SWIPE_REVEAL : 0
         return (
           <div
             key={id}
@@ -147,32 +294,59 @@ export function SortableHoldings({
               if (el) nodeRefs.current.set(id, el)
               else nodeRefs.current.delete(id)
             }}
-            className={`sortable-item${isDragged ? ' dragging' : ''}`}
+            className={`sortable-item${isDragged ? ' dragging' : ''}${editing ? ' editing' : ''}`}
             style={{
               transform: dy ? `translateY(${dy}px)` : undefined,
               transition: isDragged ? 'none' : 'transform 160ms ease',
               zIndex: isDragged ? 2 : undefined,
             }}
           >
-            <button
-              type="button"
-              className="drag-handle"
-              aria-label={`Reorder ${h.instrument.name}. Use arrow up and down keys to move.`}
-              onPointerDown={(e) => handlePointerDown(e, id)}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-              onKeyDown={(e) => handleKeyDown(e, id)}
-            >
-              <GripVertical size={18} aria-hidden="true" />
-            </button>
-            <div className="sortable-body">
-              <HoldingRow
-                holding={h}
-                mode={mode}
-                onToggleMode={onToggleMode}
-                onClick={() => onOpen(id)}
-              />
+            {editing && (
+              <button
+                type="button"
+                className="drag-handle"
+                aria-label={`Reorder ${h.instrument.name}. Use arrow up and down keys to move.`}
+                onPointerDown={(e) => handlePointerDown(e, id)}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                onKeyDown={(e) => handleKeyDown(e, id)}
+              >
+                <GripVertical size={18} aria-hidden="true" />
+              </button>
+            )}
+            <div className="swipe-wrap">
+              <div
+                className="sortable-body"
+                style={{
+                  transform: tx ? `translateX(${tx}px)` : undefined,
+                  transition: swiping ? 'none' : 'transform 200ms ease',
+                }}
+                onPointerDown={(e) => handleBodyPointerDown(e, id)}
+                onPointerMove={handleBodyPointerMove}
+                onPointerUp={() => handleBodyPointerUp(id)}
+                onPointerCancel={() => handleBodyPointerUp(id)}
+                onPointerLeave={() => !editing && cancelLongPress()}
+              >
+                <HoldingRow
+                  holding={h}
+                  mode={mode}
+                  onToggleMode={onToggleMode}
+                  onClick={() => handleOpen(id)}
+                />
+              </div>
+              {editing && (
+                <button
+                  type="button"
+                  className="swipe-delete"
+                  aria-label={`Delete ${h.instrument.name}`}
+                  onFocus={() => setOpenId(id)}
+                  onClick={() => handleDeleteClick(id)}
+                >
+                  <Trash2 size={18} aria-hidden="true" />
+                  <span>Delete</span>
+                </button>
+              )}
             </div>
           </div>
         )

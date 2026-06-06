@@ -11,7 +11,7 @@ import { useMarket } from '../store/market'
 import { db } from '../db'
 import { deleteSip, deleteTransaction, pruneInstrument, setSipActive } from '../db/repo'
 import { CHART_RANGES, fetchHistory, type ChartRange } from '../api/instrument'
-import { FREQUENCY_LABEL, nextDueDate } from '../domain/sip'
+import { FREQUENCY_LABEL, isComplete, nextDueDate } from '../domain/sip'
 import type { Transaction } from '../domain/types'
 import { formatDate, formatDateShort, formatINR, formatNumber, formatSignedNumber, formatUnits, sign } from '../lib/format'
 
@@ -202,9 +202,14 @@ export function InstrumentDetailScreen() {
                 <div className="main">
                   <div className="title">
                     {formatINR(sip.amount)} · {FREQUENCY_LABEL[sip.frequency]}
+                    {sip.installments ? ` · ${sip.installments} installments` : ''}
                   </div>
                   <div className="subtitle">
-                    {sip.active ? `Next ${formatDate(nextDueDate(sip))}` : 'Paused'}
+                    {sip.active
+                      ? `Next ${formatDate(nextDueDate(sip))}`
+                      : isComplete(sip)
+                        ? 'Completed'
+                        : 'Paused'}
                   </div>
                 </div>
                 <button
