@@ -79,7 +79,7 @@ export function LockScreen({
         <LockIcon size={30} />
       </div>
       <h2>Enter PIN</h2>
-      <div className="hint">Unlock My Funds</div>
+      <div className="hint">Unlock B Funds</div>
       <div className={`pin-dots ${err ? 'err' : ''}`}>
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className={`d ${i < pin.length ? 'f' : ''}`} />

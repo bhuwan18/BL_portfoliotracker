@@ -116,7 +116,7 @@ export function InstrumentDetailScreen() {
             <span className="p tnum">{hasPrice ? formatINR(price) : '—'}</span>
             {snapshot && <Pill pct={dayChangePct} value={dayChange} />}
           </div>
-          <div className="faint" style={{ fontSize: 12 }}>
+          <div className="faint" style={{ fontSize: 'var(--text-xs)' }}>
             {isMf ? 'Latest NAV' : 'Last price'}
             {snapshot && (
               <>

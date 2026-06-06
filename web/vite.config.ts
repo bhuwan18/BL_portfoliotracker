@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'My Funds — Portfolio Tracker',
-        short_name: 'My Funds',
+        name: 'B Funds — Portfolio Tracker',
+        short_name: 'B Funds',
         description: 'Track your Indian stocks & mutual funds. Day gain, P/L, XIRR, charts — no login required.',
         theme_color: '#0b7a4b',
         background_color: '#0b1120',

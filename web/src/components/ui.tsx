@@ -11,7 +11,7 @@ export function Loading({ label }: { label?: string }) {
   return (
     <div className="center" style={{ padding: 48, flexDirection: 'column', gap: 12 }}>
       <Spinner />
-      {label && <div className="faint" style={{ fontSize: 13 }}>{label}</div>}
+      {label && <div className="faint" style={{ fontSize: 'var(--text-sm)' }}>{label}</div>}
     </div>
   )
 }

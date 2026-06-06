@@ -104,7 +104,7 @@ export function SearchSheet({
             </button>
           ))}
         {!loading && q.trim().length === 0 && (
-          <p className="faint" style={{ textAlign: 'center', padding: '24px 10px', fontSize: 13 }}>
+          <p className="faint" style={{ textAlign: 'center', padding: '24px 10px', fontSize: 'var(--text-sm)' }}>
             Search {type === 'stock' ? 'stocks' : 'mutual funds'} to add to your portfolio.
           </p>
         )}

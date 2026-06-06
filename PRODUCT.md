@@ -20,7 +20,7 @@ via share key).
 
 ## Product Purpose
 
-**My Funds** is a no-login, on-device portfolio tracker for Indian stocks and mutual funds.
+**B Funds** is a no-login, on-device portfolio tracker for Indian stocks and mutual funds.
 It exists because retail investors want a single, trustworthy P&L view across instruments
 without handing their holdings to a broker, an ad network, or a robo-advisor. All data
 stays in the browser (IndexedDB); the server is a stateless market-data proxy (daily close

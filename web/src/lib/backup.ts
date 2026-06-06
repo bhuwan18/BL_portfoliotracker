@@ -47,11 +47,11 @@ export interface ImportResult {
 }
 
 // Validates and parses a backup JSON string into a typed payload. Throws on anything
-// that isn't a recognizable My Funds backup.
+// that isn't a recognizable B Funds backup.
 export function parseBackup(json: string): BackupPayload {
   const parsed = JSON.parse(json) as BackupPayload
   if (parsed?.app !== 'my-funds' || !parsed.data) {
-    throw new Error('Not a valid My Funds backup.')
+    throw new Error('Not a valid B Funds backup.')
   }
   return parsed
 }

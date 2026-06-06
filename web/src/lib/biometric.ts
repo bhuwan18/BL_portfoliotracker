@@ -50,11 +50,11 @@ export async function enrollBiometric(): Promise<string> {
   const cred = (await navigator.credentials.create({
     publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
-      rp: { id: location.hostname, name: 'My Funds' },
+      rp: { id: location.hostname, name: 'B Funds' },
       user: {
         id: crypto.getRandomValues(new Uint8Array(16)),
         name: 'my-funds-local',
-        displayName: 'My Funds',
+        displayName: 'B Funds',
       },
       pubKeyCredParams: [
         { type: 'public-key', alg: -7 }, // ES256

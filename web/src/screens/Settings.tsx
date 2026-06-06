@@ -241,7 +241,7 @@ export function SettingsScreen() {
         <div className="section">
           <div className="section-title">About</div>
           <div className="card">
-            <div style={{ fontWeight: 800, fontSize: 16 }}>My Funds</div>
+            <div style={{ fontWeight: 800, fontSize: 'var(--text-lg)' }}>B Funds</div>
             <p className="help" style={{ marginTop: 8 }}>
               Your data lives on this device. When you create a share key, a copy is uploaded to
               our server in plain text so another device can import it. Keys stay valid for 30 days

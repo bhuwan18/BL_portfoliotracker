@@ -4,7 +4,7 @@ Guidance for working in this repository. Read this before making changes.
 
 ## What this is
 
-**My Funds — Portfolio Tracker**: a mobile-first **PWA** that tracks Indian **stocks
+**B Funds — Portfolio Tracker**: a mobile-first **PWA** that tracks Indian **stocks
 (NSE/BSE)** and **mutual funds (incl. SIPs)**. A clone of the "My Funds – Portfolio
 Tracker" app.
 

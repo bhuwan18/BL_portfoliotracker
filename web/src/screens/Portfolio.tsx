@@ -31,7 +31,7 @@ export function PortfolioScreen() {
   return (
     <>
       <AppBar
-        title="My Funds"
+        title="B Funds"
         right={
           <>
             <button

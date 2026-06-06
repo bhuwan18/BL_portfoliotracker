@@ -25,8 +25,8 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: any[] }
         boxShadow: 'var(--shadow)',
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{formatINR(p.close)}</div>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+      <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', fontVariantNumeric: 'tabular-nums' }}>{formatINR(p.close)}</div>
+      <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-dim)', marginTop: 2 }}>
         {dayjs(p.t).format('D MMM YYYY')}
       </div>
     </div>
@@ -52,7 +52,7 @@ export function PriceChart({
   }
   if (!points || points.length < 2) {
     return (
-      <div className="chart-wrap center faint" style={{ height, fontSize: 13 }}>
+      <div className="chart-wrap center faint" style={{ height, fontSize: 'var(--text-sm)' }}>
         No chart data available
       </div>
     )

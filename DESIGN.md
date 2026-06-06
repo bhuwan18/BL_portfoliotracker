@@ -1,5 +1,5 @@
 ---
-name: My Funds — Portfolio Tracker
+name: B Funds — Portfolio Tracker
 description: A sharp, data-dense, no-login PWA for tracking Indian stocks and mutual funds, on-device.
 colors:
   accent-light: "#0b7a4b"
@@ -34,29 +34,29 @@ colors:
 typography:
   display:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "34px"
+    fontSize: "2.125rem"
     fontWeight: 800
     lineHeight: 1.05
     letterSpacing: "-0.02em"
   headline:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "20px"
+    fontSize: "1.25rem"
     fontWeight: 800
     lineHeight: 1.2
     letterSpacing: "-0.01em"
   title:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "14.5px"
+    fontSize: "0.875rem"
     fontWeight: 700
     lineHeight: 1.3
   body:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "14px"
+    fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
   label:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "13px"
+    fontSize: "0.8125rem"
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: "0.04em"
@@ -105,13 +105,13 @@ components:
     padding: "2px 9px"
 ---
 
-# Design System: My Funds — Portfolio Tracker
+# Design System: B Funds — Portfolio Tracker
 
 ## 1. Overview
 
 **Creative North Star: "The Honest Ledger"**
 
-My Funds is an instrument, not a feed. It reports the truth about a person's holdings — as
+B Funds is an instrument, not a feed. It reports the truth about a person's holdings — as
 of last close, dated and exact — and then gets out of the way. The whole system behaves
 like a well-kept ledger: tabular, precise, unhurried, and incapable of spin. Numbers are
 the content; everything else is scaffolding that earns its place by making a figure clearer.
@@ -200,18 +200,39 @@ sanctioned second family; never for prose, labels, or figures.
 own voice so figures feel native and trustworthy, and renders instantly with no web-font
 flash. Hierarchy comes entirely from **weight contrast (400 → 800) and scale**, plus
 `font-variant-numeric: tabular-nums` on every figure so columns of numbers align to the
-digit. No display face, no second family — restraint is the point.
+digit. No display face; one proportional family (with `--font-mono` reserved for codes) —
+restraint is the point.
 
-### Hierarchy
-- **Display** (800, 30–34px, line-height 1.05, `-0.02em`): the hero portfolio value and the
-  instrument detail price. The single largest figure on a screen.
-- **Headline** (800, 20px, `-0.01em`): the AppBar title.
-- **Title** (700, 14.5px, line-height 1.3): holding/row names and figures. The workhorse.
-- **Body** (400, 14px, line-height 1.5): descriptions, help text, key/value rows.
-- **Label** (700, 13px, `0.04em`, UPPERCASE): functional section headers ("HOLDINGS"). These
-  are list headers, not decorative eyebrows — they name a real list directly below.
+### Type scale
+
+A single token ramp (rem, root 16px) drives every size; raw px is gone. Hierarchy is
+**scale + weight**, tight at the small end (many UI roles share a step) and ~1.2 at the
+display end.
+
+| Token | rem | px | Role |
+|---|---|---|---|
+| `--text-2xs` | 0.6875 | 11 | badges, tiny labels |
+| `--text-xs` | 0.75 | 12 | captions, subtitles, help, metadata |
+| `--text-sm` | 0.8125 | 13 | section labels, chips, secondary UI |
+| `--text-base` | 0.875 | 14 | body, row titles, list text (workhorse) |
+| `--text-lg` | 1.0 | 16 | inputs (iOS-zoom floor), small headings |
+| `--text-xl` | 1.25 | 20 | app-bar title, lock heading |
+| `--text-2xl` | 1.375 | 22 | order/total figure |
+| `--text-3xl` | 1.625 | 26 | PIN keypad |
+| `--text-4xl` | 1.875 | 30 | instrument detail price |
+| `--text-5xl` | 2.125 | 34 | hero portfolio value |
+
+### Hierarchy (role → token)
+- **Display** (800, `--text-5xl` hero / `--text-4xl` detail price, line-height 1.05, `-0.02em`): the single largest figure on a screen.
+- **Headline** (800, `--text-xl`, `-0.01em`): the AppBar title.
+- **Title** (700, `--text-base`, line-height 1.3): holding/row names and figures. The workhorse.
+- **Body** (400, `--text-base`, line-height 1.5): descriptions, help text, key/value rows. Same size as Title; **weight** separates them.
+- **Label** (700, `--text-sm`, `0.04em`, UPPERCASE): functional section headers ("HOLDINGS"). List headers, not decorative eyebrows.
 
 ### Named Rules
+**The One Scale Rule.** Every `font-size` references a `--text-*` token; raw px is forbidden.
+A new size means a new token on the ramp, never a one-off `14.5px`.
+
 **The Tabular Rule.** Every number — prices, units, percentages, currency — uses tabular
 numerals. Figures that change (live prices, day-change) must not reflow horizontally as
 digits update. Non-negotiable.

@@ -1,4 +1,4 @@
-# My Funds — Portfolio Tracker (Mobile Web App)
+# B Funds — Portfolio Tracker (Mobile Web App)
 
 A mobile-first **PWA** that tracks your **Indian stocks (NSE/BSE)** and **mutual funds (incl. SIP)** —
 a clone of the *“My Funds – Portfolio Tracker”* app. No login: all your portfolio data stays **local on

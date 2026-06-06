@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import dayjs from 'dayjs'
 import { Plus, Search } from 'lucide-react'
 import { AppBar, SegmentedControl, Spinner, useToast } from '../components/ui'
 import { SearchSheet } from '../components/SearchSheet'
@@ -32,6 +33,41 @@ function num(s: string): number {
   return parseFloat(s)
 }
 
+// Run `fn` when Enter is pressed in a single-line input (suppress the default so
+// the keypress doesn't bubble), powering the keyboard Next/Done flow on mobile.
+function onEnter(fn: () => void) {
+  return (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      fn()
+    }
+  }
+}
+
+// Track how much of the layout viewport is hidden by the on-screen keyboard.
+// iOS shrinks the *visual* viewport when the keyboard opens but leaves the
+// *layout* viewport full-height, so a bottom-anchored button ends up behind the
+// keyboard. Mirrors the pattern used in components/Sheet.tsx.
+function useKeyboardInset(): number {
+  const [inset, setInset] = useState(0)
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+    const sync = () => {
+      const hidden = window.innerHeight - (viewport.offsetTop + viewport.height)
+      setInset(Math.max(0, Math.round(hidden)))
+    }
+    sync()
+    viewport.addEventListener('resize', sync)
+    viewport.addEventListener('scroll', sync)
+    return () => {
+      viewport.removeEventListener('resize', sync)
+      viewport.removeEventListener('scroll', sync)
+    }
+  }, [])
+  return inset
+}
+
 export function AddTransactionScreen() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -53,6 +89,15 @@ export function AddTransactionScreen() {
   const [pricing, setPricing] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Refs for keyboard Next/Done navigation between the numeric inputs.
+  const amountRef = useRef<HTMLInputElement>(null)
+  const unitsRef = useRef<HTMLInputElement>(null)
+  const priceRef = useRef<HTMLInputElement>(null)
+  const installmentsRef = useRef<HTMLInputElement>(null)
+
+  const keyboardInset = useKeyboardInset()
+  const keyboardOpen = keyboardInset > 120
+
   const isMf = instrument?.type === 'mf'
   const isSip = kind === 'sip'
 
@@ -60,6 +105,19 @@ export function AddTransactionScreen() {
   useEffect(() => {
     if (instrument && instrument.type !== 'mf' && kind === 'sip') setKind('buy')
   }, [instrument, kind])
+
+  // Once an instrument is selected (and its quote has loaded), drop the cursor
+  // into the first number field so the user can start typing immediately. Runs
+  // once per instrument. On iOS the keyboard may not pop because the preceding
+  // fetch breaks the user-gesture chain, but the keyboard Next/Done flow below
+  // (which runs inside a keypress) covers the rest of the journey.
+  useEffect(() => {
+    if (!instrument || building) return
+    const target =
+      isMf && (entryMode === 'amount' || isSip) ? amountRef.current : unitsRef.current
+    target?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instrument?.id, building])
 
   // Preselect the instrument when arriving from its detail page, so the user
   // can add a transaction without searching for the same symbol again.
@@ -72,7 +130,7 @@ export function AddTransactionScreen() {
         const inst = await db.instruments.get(presetId)
         if (cancelled || !inst) return
         setInstrument(inst)
-        setEntryMode('units')
+        setEntryMode(inst.type === 'mf' ? 'amount' : 'units')
         const quote = await fetchQuote(inst)
         if (!cancelled && quote && quote.price > 0) setPrice(String(quote.price))
       } catch {
@@ -93,7 +151,7 @@ export function AddTransactionScreen() {
     try {
       const inst = await buildInstrument(r)
       setInstrument(inst)
-      setEntryMode('units')
+      setEntryMode(inst.type === 'mf' ? 'amount' : 'units')
       const quote = await fetchQuote(inst)
       if (quote && quote.price > 0) setPrice(String(quote.price))
     } catch {
@@ -145,6 +203,17 @@ export function AddTransactionScreen() {
 
   const total = validUnits && validPrice ? computedUnits * priceVal : NaN
   const priceLabel = isMf ? 'NAV' : 'Price'
+
+  // Quick-pick dates: most transactions are entered today or the day before.
+  const today = todayISO()
+  const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD')
+  function pickDate(iso: string) {
+    if (isSip) setDate(iso)
+    else void handleDateChange(iso)
+  }
+  function submitFromKeyboard() {
+    if (canSave) void handleSave()
+  }
 
   async function handleSave() {
     if (!instrument) return
@@ -245,11 +314,27 @@ export function AddTransactionScreen() {
 
             <div className="field">
               <label>{isSip ? 'Start date' : 'Date'}</label>
+              <div className="date-quick">
+                <button
+                  type="button"
+                  className={`chip-btn${date === today ? ' chip-btn--active' : ''}`}
+                  onClick={() => pickDate(today)}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className={`chip-btn${date === yesterday ? ' chip-btn--active' : ''}`}
+                  onClick={() => pickDate(yesterday)}
+                >
+                  Yesterday
+                </button>
+              </div>
               <input
                 className="input"
                 type="date"
                 value={date}
-                max={isSip ? undefined : todayISO()}
+                max={isSip ? undefined : today}
                 onChange={(e) =>
                   isSip ? setDate(e.target.value) : handleDateChange(e.target.value)
                 }
@@ -263,11 +348,14 @@ export function AddTransactionScreen() {
                   <div className="input-prefix">
                     <span className="pfx">₹</span>
                     <input
+                      ref={amountRef}
                       className="input"
                       inputMode="decimal"
+                      enterKeyHint="next"
                       placeholder="5000"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
+                      onKeyDown={onEnter(() => installmentsRef.current?.focus())}
                     />
                   </div>
                 </div>
@@ -280,11 +368,14 @@ export function AddTransactionScreen() {
                 <div className="field">
                   <label>Number of installments</label>
                   <input
+                    ref={installmentsRef}
                     className="input"
                     inputMode="numeric"
+                    enterKeyHint="done"
                     placeholder="Ongoing"
                     value={installments}
                     onChange={(e) => setInstallments(e.target.value)}
+                    onKeyDown={onEnter(submitFromKeyboard)}
                   />
                   <div className="help">
                     {installmentsEntered && !validInstallments
@@ -340,11 +431,14 @@ export function AddTransactionScreen() {
                 <div className="input-prefix">
                   <span className="pfx">₹</span>
                   <input
+                    ref={amountRef}
                     className="input"
                     inputMode="decimal"
+                    enterKeyHint="next"
                     placeholder="0"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
+                    onKeyDown={onEnter(() => priceRef.current?.focus())}
                   />
                 </div>
                 {validPrice && Number.isFinite(amountVal) && amountVal > 0 && (
@@ -355,11 +449,14 @@ export function AddTransactionScreen() {
               <div className="field">
                 <label>Units</label>
                 <input
+                  ref={unitsRef}
                   className="input"
                   inputMode="decimal"
+                  enterKeyHint="next"
                   placeholder="0"
                   value={unitsInput}
                   onChange={(e) => setUnitsInput(e.target.value)}
+                  onKeyDown={onEnter(() => priceRef.current?.focus())}
                 />
               </div>
             )}
@@ -369,11 +466,14 @@ export function AddTransactionScreen() {
               <div className="input-prefix">
                 <span className="pfx">{pricing ? <Spinner /> : '₹'}</span>
                 <input
+                  ref={priceRef}
                   className="input"
                   inputMode="decimal"
+                  enterKeyHint="done"
                   placeholder="0"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  onKeyDown={onEnter(submitFromKeyboard)}
                 />
               </div>
             </div>
@@ -393,10 +493,15 @@ export function AddTransactionScreen() {
             </>
             )}
 
-            <button type="button" className="btn primary" disabled={!canSave} onClick={handleSave}>
-              {saving ? <Spinner /> : <Plus size={18} />}
-              {saving ? 'Saving…' : isSip ? 'Create SIP' : 'Save transaction'}
-            </button>
+            <div
+              className={`txn-save${keyboardOpen ? ' txn-save--floating' : ''}`}
+              style={keyboardOpen ? { bottom: keyboardInset } : undefined}
+            >
+              <button type="button" className="btn primary" disabled={!canSave} onClick={handleSave}>
+                {saving ? <Spinner /> : <Plus size={18} />}
+                {saving ? 'Saving…' : isSip ? 'Create SIP' : 'Save transaction'}
+              </button>
+            </div>
           </>
         )}
       </div>

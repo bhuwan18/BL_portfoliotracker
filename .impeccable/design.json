@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-06-06",
-  "title": "Design System: My Funds — Portfolio Tracker",
+  "title": "Design System: B Funds — Portfolio Tracker",
   "extensions": {
     "colorMeta": {
       "accent-light": {
@@ -135,7 +135,7 @@
   ],
   "narrative": {
     "northStar": "The Honest Ledger",
-    "overview": "My Funds is an instrument, not a feed. It reports the truth about a person's holdings — as of last close, dated and exact — and then gets out of the way. The whole system behaves like a well-kept ledger: tabular, precise, unhurried, and incapable of spin. Numbers are the content; everything else is scaffolding that earns its place by making a figure clearer. The aesthetic is sharp and data-dense, held back from clutter by hierarchy rather than shrinkage. The single chromatic decision the eye has to make is up or down — green for gain, red for loss — and that signal is never spent on decoration. This system rejects four neighbors: the hype crypto app, the cluttered legacy broker, generic AI SaaS, and anything pushy or salesy.",
+    "overview": "B Funds is an instrument, not a feed. It reports the truth about a person's holdings — as of last close, dated and exact — and then gets out of the way. The whole system behaves like a well-kept ledger: tabular, precise, unhurried, and incapable of spin. Numbers are the content; everything else is scaffolding that earns its place by making a figure clearer. The aesthetic is sharp and data-dense, held back from clutter by hierarchy rather than shrinkage. The single chromatic decision the eye has to make is up or down — green for gain, red for loss — and that signal is never spent on decoration. This system rejects four neighbors: the hype crypto app, the cluttered legacy broker, generic AI SaaS, and anything pushy or salesy.",
     "keyCharacteristics": [
       "Mobile-first, single-column, capped at a 480px reading width — built for the glance.",
       "Tabular numerals everywhere figures appear; alignment is non-negotiable.",
