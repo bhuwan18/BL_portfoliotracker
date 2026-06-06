@@ -6,6 +6,7 @@ import {
   KeyRound,
   Lock,
   Palette,
+  ScanFace,
   Share2,
   ShieldOff,
   Trash2,
@@ -15,6 +16,7 @@ import { usePortfolio } from '../hooks/usePortfolio'
 import { AppBar, SegmentedControl, Spinner, useToast } from '../components/ui'
 import { Sheet } from '../components/Sheet'
 import { hashPin } from '../lib/pin'
+import { enrollBiometric, isBiometricSupported } from '../lib/biometric'
 import { applyTheme, type ThemeMode } from '../lib/theme'
 import { wipeAllData } from '../lib/backup'
 import { shareBackup, importFromCode, ShareNotFoundError, type ShareResult } from '../lib/share'
@@ -37,7 +39,14 @@ export function SettingsScreen() {
   const transactions = useLiveQuery(() => db.transactions.toArray())
   const instruments = useLiveQuery(() => db.instruments.toArray())
   const pinHash = useLiveQuery(() => getSetting<string | null>('pinHash', null))
+  const biometricCredId = useLiveQuery(() => getSetting<string | null>('biometricCredId', null))
   const theme = useLiveQuery(() => getSetting<ThemeMode>('theme', 'system'))
+  const [bioSupported, setBioSupported] = useState(false)
+  const [bioBusy, setBioBusy] = useState(false)
+
+  useEffect(() => {
+    void isBiometricSupported().then(setBioSupported)
+  }, [])
 
   async function onExcel() {
     if (!transactions || !instruments) return
@@ -51,7 +60,28 @@ export function SettingsScreen() {
 
   async function onRemovePin() {
     await setSetting('pinHash', null)
+    // The biometric credential is only ever a PIN alternative, so removing the PIN also
+    // disables Face ID — otherwise the fallback would be gone.
+    await setSetting('biometricCredId', null)
     show('App lock removed.')
+  }
+
+  async function onEnableBio() {
+    setBioBusy(true)
+    try {
+      const id = await enrollBiometric()
+      await setSetting('biometricCredId', id)
+      show('Face ID enabled.')
+    } catch {
+      show('Could not enable Face ID. Please try again.')
+    } finally {
+      setBioBusy(false)
+    }
+  }
+
+  async function onDisableBio() {
+    await setSetting('biometricCredId', null)
+    show('Face ID disabled.')
   }
 
   async function onThemeChange(mode: ThemeMode) {
@@ -69,6 +99,7 @@ export function SettingsScreen() {
 
   const themeValue: ThemeMode = theme ?? 'system'
   const hasPin = !!pinHash
+  const hasBio = !!biometricCredId
 
   return (
     <>
@@ -134,6 +165,30 @@ export function SettingsScreen() {
                     <div className="d">Set a new 4-digit PIN</div>
                   </span>
                 </button>
+
+                {bioSupported ? (
+                  !hasBio ? (
+                    <button className="setting" type="button" onClick={onEnableBio} disabled={bioBusy}>
+                      <span className="ic">
+                        <ScanFace size={18} />
+                      </span>
+                      <span className="lbl">
+                        <div className="t">Enable Face ID</div>
+                        <div className="d">Unlock with Face ID instead of typing your PIN</div>
+                      </span>
+                    </button>
+                  ) : (
+                    <button className="setting" type="button" onClick={onDisableBio}>
+                      <span className="ic">
+                        <ScanFace size={18} />
+                      </span>
+                      <span className="lbl">
+                        <div className="t">Disable Face ID</div>
+                        <div className="d">Use only your PIN to unlock</div>
+                      </span>
+                    </button>
+                  )
+                ) : null}
 
                 <button className="setting" type="button" onClick={onRemovePin}>
                   <span className="ic">
@@ -376,7 +431,7 @@ function ShareSheet({
             <label>Your key</label>
             <div
               className="input tnum"
-              style={{ userSelect: 'all', wordBreak: 'break-all', fontFamily: 'monospace' }}
+              style={{ userSelect: 'all', wordBreak: 'break-all', fontFamily: 'var(--font-mono)' }}
             >
               {result.code}
             </div>

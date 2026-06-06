@@ -13,8 +13,13 @@ export interface BackupPayload {
   }
 }
 
-// The price cache and the PIN hash are intentionally excluded so a backup is
-// portable and never carries a lock to another device.
+// Settings that are device-bound and must never travel in a backup: the PIN hash and the
+// biometric (Face ID) credential id. Both are meaningless on another device and would only
+// carry a lock across — so a backup stays portable.
+const DEVICE_BOUND_KEYS = ['pinHash', 'biometricCredId']
+
+// The price cache and the device-bound security settings are intentionally excluded so a
+// backup is portable and never carries a lock to another device.
 export async function buildBackup(): Promise<BackupPayload> {
   const [instruments, transactions, sips, settings] = await Promise.all([
     db.instruments.toArray(),
@@ -30,7 +35,7 @@ export async function buildBackup(): Promise<BackupPayload> {
       instruments,
       transactions,
       sips,
-      settings: settings.filter((s) => s.key !== 'pinHash'),
+      settings: settings.filter((s) => !DEVICE_BOUND_KEYS.includes(s.key)),
     },
   }
 }
@@ -52,9 +57,10 @@ export function parseBackup(json: string): BackupPayload {
 }
 
 // Writes a backup payload into IndexedDB. In 'replace' mode the data tables are
-// cleared first (the price cache is left to refresh on next load). pinHash is always
-// filtered out so an imported backup never carries a lock onto this device. Older
-// payloads may still carry a `watchlist` array — it is simply ignored.
+// cleared first (the price cache is left to refresh on next load). The device-bound
+// security settings (pinHash, biometricCredId) are always filtered out so an imported
+// backup never carries a lock onto this device. Older payloads may still carry a
+// `watchlist` array — it is simply ignored.
 export async function applyBackup(
   payload: BackupPayload,
   mode: 'replace' | 'merge',
@@ -67,7 +73,9 @@ export async function applyBackup(
     await db.instruments.bulkPut(instruments ?? [])
     await db.transactions.bulkPut(transactions ?? [])
     await db.sips.bulkPut(sips ?? [])
-    if (settings?.length) await db.settings.bulkPut(settings.filter((s) => s.key !== 'pinHash'))
+    if (settings?.length) {
+      await db.settings.bulkPut(settings.filter((s) => !DEVICE_BOUND_KEYS.includes(s.key)))
+    }
   })
   return {
     instruments: instruments?.length ?? 0,

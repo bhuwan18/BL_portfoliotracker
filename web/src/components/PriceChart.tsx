@@ -25,7 +25,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: any[] }
         boxShadow: 'var(--shadow)',
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 13 }}>{formatINR(p.close)}</div>
+      <div style={{ fontWeight: 700, fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{formatINR(p.close)}</div>
       <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
         {dayjs(p.t).format('D MMM YYYY')}
       </div>

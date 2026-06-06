@@ -191,6 +191,11 @@ and is forbidden here.
 **System Font:** the native UI stack (`-apple-system, BlinkMacSystemFont, 'Segoe UI',
 Roboto, 'Helvetica Neue', Arial, sans-serif`).
 
+**Code Font:** a native monospaced stack (`--font-mono`: `ui-monospace, 'SF Mono',
+'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace`) — used *only* for transcribable
+codes (the share key), where fixed-width glyphs and character disambiguation matter. The one
+sanctioned second family; never for prose, labels, or figures.
+
 **Character:** there is one family, by design. A portfolio tracker borrows the platform's
 own voice so figures feel native and trustworthy, and renders instantly with no web-font
 flash. Hierarchy comes entirely from **weight contrast (400 → 800) and scale**, plus
@@ -312,4 +317,6 @@ action revealed beneath. This is where "dense, not cluttered" is won or lost.
 - **Don't** use a `border-left`/`border-right` colored stripe greater than 1px on any card,
   row, or callout. Use a full hairline, a tonal fill, or a leading badge instead.
 - **Don't** put a shadow on a resting card. If it isn't floating, it stays flat.
-- **Don't** introduce a second font family or a display typeface; hierarchy is weight + scale.
+- **Don't** introduce a second *proportional* family or a display typeface; hierarchy is
+  weight + scale. The only sanctioned non-system family is `--font-mono`, for transcribable
+  codes (the share key).

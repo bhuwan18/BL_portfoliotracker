@@ -10,6 +10,9 @@
   --gap: 14px;
   --pad: 16px;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Native monospaced stack — used only for transcribable codes (the share key), where
+     fixed-width glyphs + char disambiguation matter. The single sanctioned second family. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* Solid gain/loss badge fills — theme-independent so white badge text always
@@ -92,6 +95,7 @@ body {
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: none;
 }
 
@@ -222,6 +226,8 @@ a {
   font-weight: 800;
   margin: 0;
   letter-spacing: -0.01em;
+  /* Long instrument names (the detail screen title) can wrap — balance the lines. */
+  text-wrap: balance;
 }
 
 .appbar .sub {
@@ -348,6 +354,7 @@ a {
   font-size: 12px;
   font-weight: 600;
   opacity: 0.92;
+  font-variant-numeric: tabular-nums;
 }
 .hero .alloc-legend .dot {
   display: inline-block;
@@ -942,6 +949,8 @@ textarea.input {
   line-height: 1.5;
   color: var(--text-faint);
   margin-top: 6px;
+  /* Multi-line helper/about copy — avoid single-word last lines. */
+  text-wrap: pretty;
 }
 /* Inline field error (shown on blur when a value is missing/invalid). */
 .help.err {
@@ -1116,12 +1125,14 @@ textarea.input {
   margin: 0 0 6px;
   color: var(--text);
   font-size: 17px;
+  text-wrap: balance;
 }
 .empty p {
   margin: 0 auto;
   max-width: 280px;
   font-size: 13.5px;
   line-height: 1.5;
+  text-wrap: pretty;
 }
 .spinner {
   width: 22px;
@@ -1347,6 +1358,12 @@ textarea.input {
 }
 .keypad button:active {
   background: var(--surface-3);
+}
+.lock .bio-unlock {
+  margin-top: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ---------- Detail header ---------- */
