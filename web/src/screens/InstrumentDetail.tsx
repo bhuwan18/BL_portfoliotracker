@@ -8,13 +8,14 @@ import { InstrumentAvatar } from '../components/InstrumentAvatar'
 import { EditTransactionSheet } from '../components/EditTransactionSheet'
 import { useHolding, useInstrument, useInstrumentTxns } from '../hooks/usePortfolio'
 import { useActiveProfile } from '../hooks/useProfiles'
+import { useReturnMode } from '../hooks/useReturnMode'
 import { useMarket } from '../store/market'
 import { db } from '../db'
 import { deleteSip, deleteTransaction, pruneInstrument, setSipActive } from '../db/repo'
-import { CHART_RANGES, fetchHistory, type ChartRange } from '../api/instrument'
+import { fetchHistory } from '../api/instrument'
 import { FREQUENCY_LABEL, isComplete, nextDueDate } from '../domain/sip'
 import type { Transaction } from '../domain/types'
-import { formatDate, formatDateShort, formatINR, formatNumber, formatSignedNumber, formatUnits, sign } from '../lib/format'
+import { formatDate, formatDateShort, formatINR, formatNumber, formatPct, formatSignedNumber, formatUnits, sign } from '../lib/format'
 
 export function InstrumentDetailScreen() {
   const navigate = useNavigate()
@@ -38,23 +39,23 @@ export function InstrumentDetailScreen() {
     [id, activeId],
   )
 
-  const [range, setRange] = useState<ChartRange>('1y')
   const [points, setPoints] = useState<{ t: number; close: number }[]>([])
   const [chartLoading, setChartLoading] = useState(true)
   const [editing, setEditing] = useState<Transaction | null>(null)
+  const [mode, toggleMode] = useReturnMode()
 
   // Refresh the live price once the instrument is known.
   useEffect(() => {
     if (instrument) void refreshOne(instrument)
   }, [instrument, refreshOne])
 
-  // Load chart history for the selected range; ignore stale responses.
+  // Fixed 6-month rolling chart (no range selector); ignore stale responses.
   const seq = useRef(0)
   useEffect(() => {
     if (!instrument) return
     const my = ++seq.current
     setChartLoading(true)
-    void fetchHistory(instrument, range)
+    void fetchHistory(instrument, '6mo')
       .then((h) => {
         if (my !== seq.current) return
         setPoints(h?.points ?? [])
@@ -65,7 +66,7 @@ export function InstrumentDetailScreen() {
         setPoints([])
         setChartLoading(false)
       })
-  }, [instrument, range])
+  }, [instrument])
 
   if (instrument === undefined) {
     return (
@@ -131,18 +132,41 @@ export function InstrumentDetailScreen() {
 
           <PriceChart points={points} loading={chartLoading} />
 
-          <div className="range-row">
-            {CHART_RANGES.map((r) => (
+          {holding && holding.units > 0 && (
+            <div className="detail-perf">
+              {/* Tap to flip the unrealized return between ₹ P/L and annualized XIRR
+                  (shares the global return-mode with the portfolio hero & holding rows). */}
               <button
-                key={r.value}
                 type="button"
-                className={r.value === range ? 'active' : ''}
-                onClick={() => setRange(r.value)}
+                className="perf-tile"
+                aria-label="Toggle between unrealized P/L and XIRR"
+                onClick={toggleMode}
               >
-                {r.label}
+                <div className="k">{mode === 'xirr' ? 'XIRR' : 'Unrealized P/L'}</div>
+                <div className="v">
+                  {!holding.hasPrice ? (
+                    '—'
+                  ) : mode === 'xirr' ? (
+                    <span className={`delta ${sign(holding.xirr ?? 0)}`}>
+                      {holding.xirr != null ? formatPct(holding.xirr) : '—'}
+                    </span>
+                  ) : (
+                    <Delta value={holding.pnl} pct={holding.pnlPct} decimals={0} />
+                  )}
+                </div>
               </button>
-            ))}
-          </div>
+              <div className="perf-tile">
+                <div className="k">Day's gain</div>
+                <div className="v">
+                  {holding.hasPrice ? (
+                    <Delta value={holding.dayChange} pct={holding.dayChangePct} decimals={0} />
+                  ) : (
+                    '—'
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -166,22 +190,6 @@ export function InstrumentDetailScreen() {
               <div>
                 <div className="k">Current value</div>
                 <div className="v">{holding.hasPrice ? formatINR(holding.currentValue, 0) : '—'}</div>
-              </div>
-              <div>
-                <div className="k">Unrealized P/L</div>
-                <div className="v">
-                  {holding.hasPrice ? <Delta value={holding.pnl} pct={holding.pnlPct} decimals={0} /> : '—'}
-                </div>
-              </div>
-              <div>
-                <div className="k">Day's gain</div>
-                <div className="v">
-                  {holding.hasPrice ? (
-                    <Delta value={holding.dayChange} pct={holding.dayChangePct} decimals={0} />
-                  ) : (
-                    '—'
-                  )}
-                </div>
               </div>
               {sign(holding.realizedPnl) !== 'zero' && (
                 <div>
