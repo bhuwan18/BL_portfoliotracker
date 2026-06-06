@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-06",
+  "title": "Design System: My Funds — Portfolio Tracker",
+  "extensions": {
+    "colorMeta": {
+      "accent-light": {
+        "role": "primary",
+        "displayName": "Bourse Green (Light)",
+        "canonical": "#0b7a4b",
+        "tonalRamp": ["#021a10", "#04301d", "#06472b", "#085f39", "#0b7a4b", "#3a9b6f", "#7cc1a0", "#c4e6d6"]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Bourse Green (Dark)",
+        "canonical": "#16c784",
+        "tonalRamp": ["#04241a", "#073f2d", "#0a5d42", "#0e7d59", "#12a06f", "#16c784", "#5fdaa9", "#abeed0"]
+      },
+      "loss-light": {
+        "role": "secondary",
+        "displayName": "Loss Red (Light)",
+        "canonical": "#d11f1f",
+        "tonalRamp": ["#2c0606", "#4a0a0a", "#6a0f0f", "#8d1414", "#b21a1a", "#d11f1f", "#e36a6a", "#f4c2c2"]
+      },
+      "loss-dark": {
+        "role": "secondary",
+        "displayName": "Loss Red (Dark)",
+        "canonical": "#f0616d",
+        "tonalRamp": ["#3a0d12", "#5e151d", "#831e29", "#a82735", "#cc3a48", "#f0616d", "#f59aa2", "#fbd2d6"]
+      },
+      "stock-hue": {
+        "role": "tertiary",
+        "displayName": "Stock Blue",
+        "canonical": "#2f80ed",
+        "tonalRamp": ["#08203f", "#0d3461", "#134a85", "#1a61a9", "#2473ce", "#2f80ed", "#74a8f3", "#bcd4fa"]
+      },
+      "mf-hue": {
+        "role": "tertiary",
+        "displayName": "Fund Violet",
+        "canonical": "#8b5cf6",
+        "tonalRamp": ["#1f0f47", "#321866", "#472285", "#5d2da6", "#7444cc", "#8b5cf6", "#b394f9", "#dccbfc"]
+      },
+      "ink-light": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0f1b2d",
+        "tonalRamp": ["#0f1b2d", "#2a3850", "#465673", "#647597", "#8593b0", "#a8b3c9", "#cdd4e1", "#eef1f7"]
+      },
+      "bg-dark": {
+        "role": "neutral",
+        "displayName": "Deep Navy Page",
+        "canonical": "#0b1120",
+        "tonalRamp": ["#0b1120", "#131c2f", "#1a2438", "#212d45", "#2a3855", "#3a4a6b", "#5a6b85", "#9aa7bd"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero portfolio value and instrument detail price — the single largest figure on a screen." },
+      "headline": { "displayName": "Headline", "purpose": "AppBar title." },
+      "title": { "displayName": "Title", "purpose": "Holding/row names and figures — the workhorse." },
+      "body": { "displayName": "Body", "purpose": "Descriptions, help text, key/value rows." },
+      "label": { "displayName": "Label", "purpose": "Functional UPPERCASE section headers naming the list below — not decorative eyebrows." }
+    },
+    "shadows": [
+      { "name": "float", "value": "0 8px 24px rgba(15,27,45,0.1)", "purpose": "Light-theme float: hero card, bottom sheets, toast, dragged row. The only resting-state shadow, and only on floating elements." },
+      { "name": "float-dark", "value": "0 10px 30px rgba(0,0,0,0.35)", "purpose": "Dark-theme equivalent of float." },
+      { "name": "segment-lift", "value": "0 1px 3px rgba(0,0,0,0.18)", "purpose": "Hairline lift on the active segment of a segmented control only." }
+    ],
+    "motion": [
+      { "name": "press", "value": "transform 0.05s", "purpose": "Tactile button/card press: scale to 0.98–0.99 on :active." },
+      { "name": "sheet-slideup", "value": "cubic-bezier(0.2, 0.8, 0.2, 1) 0.22s", "purpose": "Bottom-sheet entrance: slide up from translateY(100%)." },
+      { "name": "scrim-fade", "value": "ease 0.18s", "purpose": "Modal scrim fade-in." },
+      { "name": "switch", "value": "0.18s", "purpose": "Toggle track color + knob translate." }
+    ],
+    "breakpoints": [
+      { "name": "reading-max", "value": "480px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Full-width primary action; Bourse Green fill, white ink, comfortable thumb target.",
+      "html": "<button class=\"ds-btn-primary\">Add transaction</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 50px; padding: 0 18px; width: 100%; border: none; border-radius: 14px; font-weight: 700; font-size: 15px; background: #0b7a4b; color: #ffffff; cursor: pointer; transition: transform 0.05s; } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: 2px solid #0b7a4b; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action; transparent with a 1px border.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 50px; padding: 0 18px; width: 100%; border: 1px solid #e3e9f2; border-radius: 14px; font-weight: 700; font-size: 15px; background: transparent; color: #0f1b2d; cursor: pointer; transition: transform 0.05s; } .ds-btn-ghost:active { transform: scale(0.98); } .ds-btn-ghost:focus-visible { outline: 2px solid #0b7a4b; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Inset field on surface-2; 16px font to prevent iOS zoom; border shifts to accent on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search NSE/BSE or fund\" />",
+      "css": ".ds-input { width: 100%; height: 50px; box-sizing: border-box; border-radius: 14px; background: #f3f6fb; border: 1px solid #eef2f8; color: #0f1b2d; padding: 0 14px; font-size: 16px; outline: none; } .ds-input::placeholder { color: #5a6b85; } .ds-input:focus { border-color: #0b7a4b; } .ds-input:focus-visible { outline: 2px solid #0b7a4b; outline-offset: 1px; }"
+    },
+    {
+      "name": "Gain Badge",
+      "kind": "chip",
+      "refersTo": "gain-badge",
+      "description": "Solid color-filled P&L marker; white text; the high-contrast up/down signal on holding cards. Also the return-mode toggle.",
+      "html": "<span class=\"ds-gain-badge\">+ ₹12,480</span>",
+      "css": ".ds-gain-badge { display: inline-block; font-weight: 700; font-size: 13px; line-height: 1.3; padding: 2px 9px; border-radius: 7px; color: #ffffff; background: #0b7a4b; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Return Pill",
+      "kind": "chip",
+      "refersTo": "pill",
+      "description": "Sign-tinted pill (gain/loss/zero); tabular; doubles as the XIRR ⇄ absolute toggle.",
+      "html": "<span class=\"ds-pill ds-pill-pos\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"6 15 12 9 18 15\"/></svg>14.2%</span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; font-variant-numeric: tabular-nums; } .ds-pill-pos { color: #0b7a4b; background: rgba(11,122,75,0.1); }"
+    },
+    {
+      "name": "Holding Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Signature row: name + as-on/units on the left, value + day-change on the right, a faint type tint, and a trailing chevron into detail. Where 'dense, not cluttered' is won.",
+      "html": "<div class=\"ds-holding\"><div class=\"ds-holding-main\"><div class=\"ds-holding-line\"><span class=\"ds-holding-name\">Reliance Industries</span><span class=\"ds-gain-badge\">+ ₹8,210</span></div><div class=\"ds-holding-line\"><span class=\"ds-holding-detail\">42 units · As on 06 Jun</span><span class=\"ds-holding-fig\">₹1,28,940</span></div></div><svg class=\"ds-chev\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"9 18 15 12 9 6\"/></svg></div>",
+      "css": ".ds-holding { display: flex; align-items: center; gap: 8px; padding: 13px 14px; border-radius: 18px; background: color-mix(in srgb, #ffffff 94%, #2f80ed); border: 1px solid color-mix(in srgb, #eef2f8 82%, #2f80ed); } .ds-holding-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; } .ds-holding-line { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; } .ds-holding-name { flex: 1; min-width: 0; font-weight: 700; font-size: 14.5px; line-height: 1.3; color: #0f1b2d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-holding-detail { font-size: 12.5px; color: #5a6b85; font-variant-numeric: tabular-nums; } .ds-holding-fig { flex: none; text-align: right; font-size: 13px; font-weight: 600; color: #0f1b2d; font-variant-numeric: tabular-nums; } .ds-gain-badge { display: inline-block; font-weight: 700; font-size: 13px; padding: 2px 9px; border-radius: 7px; color: #fff; background: #0b7a4b; font-variant-numeric: tabular-nums; } .ds-chev { flex: none; color: #5a6b85; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "nav",
+      "refersTo": "segmented",
+      "description": "Inset toggle on surface-2; active segment lifts with a hairline shadow. Used for buy/sell, range, theme.",
+      "html": "<div class=\"ds-segmented\"><button class=\"ds-seg ds-seg-active\">Buy</button><button class=\"ds-seg\">Sell</button></div>",
+      "css": ".ds-segmented { display: flex; background: #f3f6fb; border-radius: 12px; padding: 4px; gap: 4px; } .ds-seg { flex: 1; height: 44px; border: none; border-radius: 9px; font-weight: 700; font-size: 13.5px; color: #5a6b85; background: transparent; cursor: pointer; } .ds-seg-active { background: #ffffff; color: #0f1b2d; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Honest Ledger",
+    "overview": "My Funds is an instrument, not a feed. It reports the truth about a person's holdings — as of last close, dated and exact — and then gets out of the way. The whole system behaves like a well-kept ledger: tabular, precise, unhurried, and incapable of spin. Numbers are the content; everything else is scaffolding that earns its place by making a figure clearer. The aesthetic is sharp and data-dense, held back from clutter by hierarchy rather than shrinkage. The single chromatic decision the eye has to make is up or down — green for gain, red for loss — and that signal is never spent on decoration. This system rejects four neighbors: the hype crypto app, the cluttered legacy broker, generic AI SaaS, and anything pushy or salesy.",
+    "keyCharacteristics": [
+      "Mobile-first, single-column, capped at a 480px reading width — built for the glance.",
+      "Tabular numerals everywhere figures appear; alignment is non-negotiable.",
+      "One green accent + a gain/loss red; color is a data channel, not mood.",
+      "Flat bordered surfaces at rest; shadow reserved for things that float.",
+      "Dual light/dark themes, synced to OS preference, both holding WCAG AA."
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Color answers exactly one question on a data screen: did this go up or down. Green and red are reserved for that. Anything tinted for another reason must stay low-chroma and out of the gain/loss register.", "section": "colors" },
+      { "name": "The No-Cream Rule", "body": "The light background is a cool blue-grey off-white (#eef1f7), never a warm cream/sand/parchment. A cream bg is the AI default and is forbidden here.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "Every number uses tabular numerals. Figures that change must not reflow horizontally as digits update.", "section": "typography" },
+      { "name": "The Two-Line Cap Rule", "body": "Long fund names clamp to two lines and wrap; detail lines stay single-line and ellipsize. Names grow down, never sideways into the figures column.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "A surface at rest has a border, never a shadow. If it isn't floating (sheet, hero, toast, drag), it doesn't get one. Depth between resting surfaces is tonal.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do put font-variant-numeric: tabular-nums on every figure; align numbers to the digit.",
+      "Do spend green/red only on the gain/loss signal, and reinforce it with sign (+/−) and position so it survives color-blindness.",
+      "Do keep surfaces flat with a 1px hairline; grant shadow only to floating elements (hero, sheets, toast, dragged row).",
+      "Do keep tap targets ≥44px and inputs at 16px font.",
+      "Do state figures plainly with their as-of date and stop. Report; don't editorialize.",
+      "Do keep the light background a cool off-white (#eef1f7) and the dark a true navy."
+    ],
+    "donts": [
+      "Don't celebrate gains or dramatize losses — no confetti, streaks, neon, or 'to the moon' framing. This is not a hype crypto app.",
+      "Don't drift toward a legacy broker: no grey data-grids, no hairline-tiny text, no cramped sub-44px targets.",
+      "Don't use a cream/sand/parchment background, a tracked-uppercase eyebrow above every section, identical icon-card grids, or gradient text.",
+      "Don't add ads, upsells, 'recommended buys,' or scores that imply advice.",
+      "Don't use a border-left/border-right colored stripe greater than 1px on any card, row, or callout.",
+      "Don't put a shadow on a resting card. If it isn't floating, it stays flat.",
+      "Don't introduce a second font family or a display typeface; hierarchy is weight + scale."
+    ]
+  }
+}

@@ -592,12 +592,12 @@ a {
    hue (blue = stock, purple = MF), matching the hero allocation colours. Light shades
    only — kept well below the active/dragging surface changes so those still read. */
 .holding-card.is-stock {
-  background: color-mix(in srgb, var(--surface) 94%, var(--stock));
-  border-color: color-mix(in srgb, var(--border-soft) 82%, var(--stock));
+  background: color-mix(in srgb, var(--surface) 89%, var(--stock));
+  border-color: color-mix(in srgb, var(--border-soft) 70%, var(--stock));
 }
 .holding-card.is-mf {
-  background: color-mix(in srgb, var(--surface) 94%, var(--mf));
-  border-color: color-mix(in srgb, var(--border-soft) 82%, var(--mf));
+  background: color-mix(in srgb, var(--surface) 89%, var(--mf));
+  border-color: color-mix(in srgb, var(--border-soft) 70%, var(--mf));
 }
 .holding-main {
   flex: 1;
