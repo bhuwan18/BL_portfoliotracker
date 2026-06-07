@@ -113,6 +113,33 @@ export function computeHolding(
   }
 }
 
+// XIRR over a subset of holdings: their realized cash flows plus a terminal inflow equal to
+// the subset's current value. CLOSED positions (units === 0) are included — their buys and
+// sells are realized money that belongs in the money-weighted return, and dropping them would
+// contradict the realized P&L shown alongside. Held-but-unpriced positions are excluded: we
+// can't value them, and counting their buys with no offsetting current value would fabricate a
+// loss (same reason they're left out of the money aggregates). Shared by the blended figure and
+// the per-sleeve (stock/MF) breakdown so all three stay provably consistent.
+function xirrForSubset(
+  holdings: Holding[],
+  txnsByInstrument: Map<string, Transaction[]>,
+  terminalValue: number,
+): number | null {
+  const ids = new Set(
+    holdings.filter((h) => h.units === 0 || h.hasPrice).map((h) => h.instrument.id),
+  )
+  const flows: CashFlow[] = []
+  for (const h of holdings) {
+    if (!ids.has(h.instrument.id)) continue
+    const txns = txnsByInstrument.get(h.instrument.id)
+    if (!txns) continue
+    flows.push(...transactionCashFlows(txns))
+  }
+  if (terminalValue > 0) flows.push({ date: todayAsOf(), amount: terminalValue })
+  const rate = xirr(flows)
+  return rate != null ? rate * 100 : null
+}
+
 export function computePortfolio(
   instruments: Instrument[],
   txnsByInstrument: Map<string, Transaction[]>,
@@ -139,25 +166,21 @@ export function computePortfolio(
   const byType = { stock: 0, mf: 0 }
   for (const h of priced) byType[h.instrument.type] += h.currentValue
 
-  // XIRR over every position's realized cash flows plus the current value of what's
-  // still held. CLOSED positions (units === 0) are included: their buys and sells are
-  // realized money that belongs in the money-weighted return, and dropping them would
-  // contradict the realized P&L shown right next to the XIRR. The only positions left
-  // out are held-but-unpriced ones — we can't value them, and counting their buys with
-  // no offsetting current value would fabricate a loss (same reason they're excluded
-  // from the money aggregates above).
-  const xirrIds = new Set(
-    holdings.filter((h) => h.units === 0 || h.hasPrice).map((h) => h.instrument.id),
-  )
-  const flows: CashFlow[] = []
-  for (const h of holdings) {
-    if (!xirrIds.has(h.instrument.id)) continue
-    const txns = txnsByInstrument.get(h.instrument.id)
-    if (!txns) continue
-    flows.push(...transactionCashFlows(txns))
+  // Blended XIRR plus a per-sleeve breakdown (Equity vs MF). Each runs over its own positions'
+  // cash flows with that sleeve's current value as the terminal inflow — see xirrForSubset.
+  const xirrPct = xirrForSubset(holdings, txnsByInstrument, currentValue)
+  const xirrByType = {
+    stock: xirrForSubset(
+      holdings.filter((h) => h.instrument.type === 'stock'),
+      txnsByInstrument,
+      byType.stock,
+    ),
+    mf: xirrForSubset(
+      holdings.filter((h) => h.instrument.type === 'mf'),
+      txnsByInstrument,
+      byType.mf,
+    ),
   }
-  if (currentValue > 0) flows.push({ date: todayAsOf(), amount: currentValue })
-  const rate = xirr(flows)
 
   return {
     invested,
@@ -167,7 +190,8 @@ export function computePortfolio(
     dayChange,
     dayChangePct: prevValue > 0 ? (dayChange / prevValue) * 100 : 0,
     realizedPnl,
-    xirr: rate != null ? rate * 100 : null,
+    xirr: xirrPct,
+    xirrByType,
     holdings: held.sort((a, b) => b.currentValue - a.currentValue),
     byType,
   }

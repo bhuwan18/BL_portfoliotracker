@@ -375,27 +375,50 @@ a {
   position: relative;
   overflow: hidden;
 }
-.hero .label {
+/* Two hero metrics (today's move + overall return), side by side. Both are percentages —
+   the glanceable figures — so net worth can drop to a plain stat tile below and is no
+   longer the billboard number readable across a room. */
+.hero-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 2px;
+}
+button.hero-metric {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+button.hero-metric:active {
+  transform: scale(0.98);
+}
+.hero-metric .k {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: var(--text-sm);
   opacity: 0.82;
   font-weight: 600;
 }
-.hero .value {
-  font-size: var(--text-5xl);
+.hero-metric .big {
+  font-size: var(--text-4xl);
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 2px 0 2px;
-  line-height: 1.05;
+  line-height: 1.1;
+  margin: 1px 0 0;
 }
-/* Pill row under the hero value. Has its own class (not the generic list `.row`),
-   which would otherwise paint a white --surface card + border behind the pills —
-   invisible white-on-white in light mode. */
-.hero-pills {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+.hero-metric .sub {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  opacity: 0.82;
+  margin-top: 1px;
 }
 .hero .stat-strip {
   display: grid;
@@ -463,6 +486,12 @@ a {
   margin-right: 5px;
   vertical-align: middle;
 }
+/* Per-sleeve XIRR appended to each legend line — kept on one line so the arrow + figure
+   never wrap apart from the "XIRR" label. */
+.hero .alloc-legend .xirr {
+  white-space: nowrap;
+  opacity: 0.88;
+}
 
 /* ---------- Stat tiles ---------- */
 .stat-grid {
@@ -519,10 +548,6 @@ a {
 }
 .pill.zero {
   background: var(--chip);
-}
-.hero .pill {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
 }
 .tnum {
   font-variant-numeric: tabular-nums;

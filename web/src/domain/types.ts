@@ -96,7 +96,8 @@ export interface PortfolioSummary {
   dayChange: number
   dayChangePct: number
   realizedPnl: number
-  xirr: number | null // percent, e.g. 14.2
+  xirr: number | null // percent, e.g. 14.2 (blended across both sleeves)
+  xirrByType: { stock: number | null; mf: number | null } // per-sleeve XIRR; null when not computable
   holdings: Holding[] // held positions (units > 0), sorted by value desc
   byType: { stock: number; mf: number }
 }

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpDown, CandlestickChart, Check, ChevronDown, Layers, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
+import { ArrowLeftRight, ArrowUpDown, CandlestickChart, Check, ChevronDown, Layers, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
 import { useActiveProfile, useProfiles } from '../hooks/useProfiles'
@@ -259,47 +259,50 @@ function Hero({
   const showAlloc = summary.currentValue > 0
   const stockPct = showAlloc ? (summary.byType.stock / summary.currentValue) * 100 : 0
   const mfPct = showAlloc ? (summary.byType.mf / summary.currentValue) * 100 : 0
+
+  // Two hero metrics, both percentages: today's move and overall return. Net worth is
+  // deliberately demoted to a stat tile below — a return % is glanceable without exposing
+  // how much wealth is on screen. The overall figure toggles XIRR (annualized) ↔ absolute
+  // total-return %, sharing the app-wide return lens; its ₹ sub-line is the absolute gain
+  // either way, so no information is lost by dropping the old "Total returns" tile.
+  const xirrMode = mode === 'xirr'
+  const noXirr = xirrMode && summary.xirr == null
+  const overallPct = xirrMode ? (summary.xirr ?? 0) : summary.totalPnlPct
   return (
     <div className="hero">
-      <div className="label">Current value</div>
-      <div className="value tnum">{formatINR(summary.currentValue, 0)}</div>
-      <div className="hero-pills">
-        <span className="pill">
-          Today {summary.dayChange >= 0 ? '▲' : '▼'} {formatINR(Math.abs(summary.dayChange), 0)} (
-          {formatPct(summary.dayChangePct, false)})
-        </span>
+      <div className="hero-metrics">
+        <div className="hero-metric">
+          <div className="k">Today</div>
+          <div className="big tnum">
+            {summary.dayChange >= 0 ? '▲' : '▼'} {formatPct(summary.dayChangePct, false)}
+          </div>
+          <div className="sub tnum">{formatSignedINR(summary.dayChange, 0)}</div>
+        </div>
         <button
           type="button"
-          className="pill"
+          className="hero-metric"
           onClick={onToggleMode}
           aria-label="Toggle overall return and XIRR"
         >
-          {mode === 'xirr' ? (
-            <>
-              XIRR{' '}
-              {summary.xirr != null
-                ? `${summary.xirr >= 0 ? '▲' : '▼'} ${formatPct(summary.xirr, false)}`
-                : '—'}
-            </>
-          ) : (
-            <>
-              Overall {summary.totalPnl >= 0 ? '▲' : '▼'} {formatPct(summary.totalPnlPct, false)}
-            </>
-          )}
+          <div className="k">
+            {xirrMode ? 'Overall · XIRR' : 'Overall return'}
+            <ArrowLeftRight size={12} aria-hidden="true" />
+          </div>
+          <div className="big tnum">
+            {noXirr ? '—' : <>{overallPct >= 0 ? '▲' : '▼'} {formatPct(overallPct, false)}</>}
+          </div>
+          <div className="sub tnum">{formatSignedINR(summary.totalPnl, 0)}</div>
         </button>
       </div>
+
       <div className="stat-strip">
+        <div className="hero-stat">
+          <div className="k">Current value</div>
+          <div className="v tnum">{formatINR(summary.currentValue, 0)}</div>
+        </div>
         <div className="hero-stat">
           <div className="k">Invested</div>
           <div className="v tnum">{formatINR(summary.invested, 0)}</div>
-        </div>
-        <div className="hero-stat">
-          <div className="k">Total returns</div>
-          <div className="v tnum">
-            {summary.totalPnl >= 0 ? '+' : '−'}
-            {formatINR(Math.abs(summary.totalPnl), 0)}
-            <span className="sub"> ({formatPct(summary.totalPnlPct, false)})</span>
-          </div>
         </div>
       </div>
 
@@ -322,9 +325,21 @@ function Hero({
           <div className="alloc-legend">
             <span>
               <span className="dot" style={{ background: 'var(--stock)' }} /> Stocks {stockPct.toFixed(1)}%
+              {summary.xirrByType.stock != null && (
+                <span className="xirr">
+                  {' · '}XIRR {summary.xirrByType.stock >= 0 ? '▲' : '▼'}{' '}
+                  {formatPct(summary.xirrByType.stock, false)}
+                </span>
+              )}
             </span>
             <span>
               <span className="dot" style={{ background: 'var(--mf)' }} /> Mutual Funds {mfPct.toFixed(1)}%
+              {summary.xirrByType.mf != null && (
+                <span className="xirr">
+                  {' · '}XIRR {summary.xirrByType.mf >= 0 ? '▲' : '▼'}{' '}
+                  {formatPct(summary.xirrByType.mf, false)}
+                </span>
+              )}
             </span>
           </div>
         </div>
