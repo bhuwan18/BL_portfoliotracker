@@ -104,7 +104,13 @@
    other browsers keep the fixed 16px baseline (Android Chrome applies its own
    page zoom for the system font-size setting). The `font` shorthand also sets
    <html>'s font-family to the system UI font, but <body> re-asserts var(--font)
-   below, so the app's font stack is unchanged — only the size tracks the OS. */
+   below, so the app's font stack is unchanged — only the size tracks the OS.
+
+   This CSS is the fallback. `lib/dynamicType.ts` then measures the resolved
+   `-apple-system-body` size and pins it onto <html> as an explicit px
+   font-size, so `rem` keys off a concrete value even on WebKit builds (notably
+   standalone home-screen PWAs) that don't flow the keyword's dynamic size into
+   the `rem` unit. The inline px size wins over this rule; the two agree. */
 html {
   font-size: 16px;
 }

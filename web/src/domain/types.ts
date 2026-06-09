@@ -99,5 +99,6 @@ export interface PortfolioSummary {
   xirr: number | null // percent, e.g. 14.2 (blended across both sleeves)
   xirrByType: { stock: number | null; mf: number | null } // per-sleeve XIRR; null when not computable
   holdings: Holding[] // held positions (units > 0), sorted by value desc
-  byType: { stock: number; mf: number }
+  byType: { stock: number; mf: number } // current value per sleeve (priced holdings only)
+  pnlByType: { stock: number; mf: number } // unrealized gain per sleeve (priced holdings only)
 }

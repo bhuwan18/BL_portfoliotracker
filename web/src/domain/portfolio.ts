@@ -164,7 +164,15 @@ export function computePortfolio(
   const prevValue = currentValue - dayChange
 
   const byType = { stock: 0, mf: 0 }
-  for (const h of priced) byType[h.instrument.type] += h.currentValue
+  const investedByType = { stock: 0, mf: 0 }
+  for (const h of priced) {
+    byType[h.instrument.type] += h.currentValue
+    investedByType[h.instrument.type] += h.investedValue
+  }
+  const pnlByType = {
+    stock: byType.stock - investedByType.stock,
+    mf: byType.mf - investedByType.mf,
+  }
 
   // Blended XIRR plus a per-sleeve breakdown (Equity vs MF). Each runs over its own positions'
   // cash flows with that sleeve's current value as the terminal inflow — see xirrForSubset.
@@ -194,5 +202,6 @@ export function computePortfolio(
     xirrByType,
     holdings: held.sort((a, b) => b.currentValue - a.currentValue),
     byType,
+    pnlByType,
   }
 }

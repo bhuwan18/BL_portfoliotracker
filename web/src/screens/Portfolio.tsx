@@ -3,7 +3,8 @@ import { ArrowLeftRight, ArrowUpDown, CandlestickChart, Check, ChevronDown, Laye
 import { useEffect, useMemo, useState } from 'react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
 import { useActiveProfile, useProfiles } from '../hooks/useProfiles'
-import { useReturnMode, type ReturnMode } from '../hooks/useReturnMode'
+import { useReturnMode } from '../hooks/useReturnMode'
+import { useDayMode, useIrrSleeve, type IrrSleeve } from '../hooks/useHeroToggles'
 import { orderHoldings, useHoldingsOrder } from '../hooks/useHoldingsOrder'
 import { useMarket } from '../store/market'
 import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
@@ -110,7 +111,7 @@ export function PortfolioScreen() {
         <Loading label="Loading portfolio…" />
       ) : !hasHoldings ? (
         <>
-          <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
+          <Hero summary={summary} />
           <div className="screen">
             <EmptyState
               icon={<Wallet size={28} />}
@@ -126,7 +127,7 @@ export function PortfolioScreen() {
         </>
       ) : (
         <>
-          <Hero summary={summary} mode={mode} onToggleMode={toggleMode} />
+          <Hero summary={summary} />
 
           <div className="screen section">
             <div className="section-title">
@@ -247,52 +248,107 @@ function ProfileSwitchSheet({
   )
 }
 
-function Hero({
-  summary,
-  mode,
-  onToggleMode,
-}: {
-  summary: ReturnType<typeof usePortfolio>['summary']
-  mode: ReturnMode
-  onToggleMode: () => void
-}) {
+function Hero({ summary }: { summary: ReturnType<typeof usePortfolio>['summary'] }) {
   const showAlloc = summary.currentValue > 0
   const stockPct = showAlloc ? (summary.byType.stock / summary.currentValue) * 100 : 0
   const mfPct = showAlloc ? (summary.byType.mf / summary.currentValue) * 100 : 0
 
-  // Two hero metrics, both percentages: today's move and overall return. Net worth is
+  // Two hero metrics, both glanceable: today's move and the overall return. Net worth is
   // deliberately demoted to a stat tile below — a return % is glanceable without exposing
-  // how much wealth is on screen. The overall figure toggles XIRR (annualized) ↔ absolute
-  // total-return %, sharing the app-wide return lens; its ₹ sub-line is the absolute gain
-  // either way, so no information is lost by dropping the old "Total returns" tile.
-  const xirrMode = mode === 'xirr'
-  const noXirr = xirrMode && summary.xirr == null
-  const overallPct = xirrMode ? (summary.xirr ?? 0) : summary.totalPnlPct
+  // how much wealth is on screen.
+  //
+  // Tile 1 (Today) toggles between the percentage move and the absolute ₹ gain.
+  // Tile 2 (Overall) cycles XIRR across sleeves: blended → MF → Equity. Both choices are
+  // persisted (see useHeroToggles). The ₹ figure on each tile is the demoted sub-line.
+  const [dayMode, toggleDayMode] = useDayMode()
+  const [sleeve, setSleeve] = useIrrSleeve()
+
+  const dayUp = summary.dayChange >= 0
+  const dayTri = dayUp ? '▲' : '▼'
+
+  // The XIRR sleeve toggle is only offered when the portfolio actually holds both kinds —
+  // with a single kind the blended figure already *is* that sleeve, so cycling is pointless.
+  const hasStocks = summary.byType.stock > 0
+  const hasMf = summary.byType.mf > 0
+  const sleeves: IrrSleeve[] = hasStocks && hasMf ? ['all', 'mf', 'stock'] : ['all']
+  const canCycle = sleeves.length > 1
+  // If the selected sleeve disappears (its last priced holding removed, or only one kind
+  // remains), fall back to the blended figure.
+  useEffect(() => {
+    if (!sleeves.includes(sleeve)) setSleeve('all')
+  }, [hasStocks, hasMf, sleeve, setSleeve])
+
+  const activeSleeve = sleeves.includes(sleeve) ? sleeve : 'all'
+  const sleeveXirr =
+    activeSleeve === 'all'
+      ? summary.xirr
+      : activeSleeve === 'stock'
+        ? summary.xirrByType.stock
+        : summary.xirrByType.mf
+  const sleevePnl =
+    activeSleeve === 'all'
+      ? summary.totalPnl
+      : activeSleeve === 'stock'
+        ? summary.pnlByType.stock
+        : summary.pnlByType.mf
+  const sleeveLabel =
+    activeSleeve === 'all' ? 'Overall' : activeSleeve === 'stock' ? 'Equity' : 'MF'
+
+  const cycleSleeve = () => {
+    const i = sleeves.indexOf(activeSleeve)
+    setSleeve(sleeves[(i + 1) % sleeves.length])
+  }
+
+  const overall = (
+    <>
+      <div className="k">
+        {sleeveLabel} · XIRR
+        {canCycle && <ArrowLeftRight size={12} aria-hidden="true" />}
+      </div>
+      <div className="big tnum">
+        {sleeveXirr == null ? '—' : <>{sleeveXirr >= 0 ? '▲' : '▼'} {formatPct(sleeveXirr, false)}</>}
+      </div>
+      <div className="sub tnum">{formatSignedINR(sleevePnl, 0)}</div>
+    </>
+  )
+
   return (
     <div className="hero">
       <div className="hero-metrics">
-        <div className="hero-metric">
-          <div className="k">Today</div>
-          <div className="big tnum">
-            {summary.dayChange >= 0 ? '▲' : '▼'} {formatPct(summary.dayChangePct, false)}
-          </div>
-          <div className="sub tnum">{formatSignedINR(summary.dayChange, 0)}</div>
-        </div>
         <button
           type="button"
           className="hero-metric"
-          onClick={onToggleMode}
-          aria-label="Toggle overall return and XIRR"
+          onClick={toggleDayMode}
+          aria-label="Toggle today's gain between percent and rupees"
         >
           <div className="k">
-            {xirrMode ? 'Overall · XIRR' : 'Overall return'}
+            Today
             <ArrowLeftRight size={12} aria-hidden="true" />
           </div>
           <div className="big tnum">
-            {noXirr ? '—' : <>{overallPct >= 0 ? '▲' : '▼'} {formatPct(overallPct, false)}</>}
+            {dayTri}{' '}
+            {dayMode === 'pct'
+              ? formatPct(summary.dayChangePct, false)
+              : formatINR(Math.abs(summary.dayChange), 0)}
           </div>
-          <div className="sub tnum">{formatSignedINR(summary.totalPnl, 0)}</div>
+          <div className="sub tnum">
+            {dayMode === 'pct'
+              ? formatSignedINR(summary.dayChange, 0)
+              : formatPct(summary.dayChangePct)}
+          </div>
         </button>
+        {canCycle ? (
+          <button
+            type="button"
+            className="hero-metric"
+            onClick={cycleSleeve}
+            aria-label="Cycle XIRR between overall, mutual funds and equity"
+          >
+            {overall}
+          </button>
+        ) : (
+          <div className="hero-metric">{overall}</div>
+        )}
       </div>
 
       <div className="stat-strip">
