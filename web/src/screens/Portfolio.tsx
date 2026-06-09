@@ -11,7 +11,7 @@ import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
 import { Sheet } from '../components/Sheet'
 import { SortableHoldings } from '../components/SortableHoldings'
 import { DeleteHoldingSheet } from '../components/DeleteHoldingSheet'
-import { formatINR, formatPct, formatSignedINR, sign } from '../lib/format'
+import { formatINR, formatINRCompact, formatPct, formatSignedINR, sign } from '../lib/format'
 import type { Holding, Profile } from '../domain/types'
 
 export function PortfolioScreen() {
@@ -329,7 +329,7 @@ function Hero({ summary }: { summary: ReturnType<typeof usePortfolio>['summary']
             {dayTri}{' '}
             {dayMode === 'pct'
               ? formatPct(summary.dayChangePct, false)
-              : formatINR(Math.abs(summary.dayChange), 0)}
+              : formatINRCompact(Math.abs(summary.dayChange))}
           </div>
           <div className="sub tnum">
             {dayMode === 'pct'

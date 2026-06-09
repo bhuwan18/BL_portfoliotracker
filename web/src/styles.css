@@ -412,13 +412,17 @@ button.hero-metric:active {
   font-size: var(--text-sm);
   opacity: 0.82;
   font-weight: 600;
+  white-space: nowrap;
 }
+/* Big figure stays on one line so the up/down triangle never detaches from the number.
+   Long ₹ amounts are fed in compact (₹L/Cr) form, so this never overflows the narrow tile. */
 .hero-metric .big {
   font-size: var(--text-4xl);
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.1;
   margin: 1px 0 0;
+  white-space: nowrap;
 }
 .hero-metric .sub {
   font-size: var(--text-sm);

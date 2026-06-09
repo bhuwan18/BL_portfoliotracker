@@ -20,31 +20,37 @@ const MIN_RATE = -0.9999 // just above a total (−100%) loss
 const MAX_RATE = 100 // 10000% — above this an annualized rate is not meaningful
 
 export function xirr(flows: CashFlow[]): number | null {
-  if (flows.length < 2) return null
-  // Need both an inflow and an outflow, else there is no rate to solve for.
-  if (!flows.some((f) => f.amount > 0) || !flows.some((f) => f.amount < 0)) return null
+  // Drop any flow whose date can't be placed on the time axis (malformed/invalid date) —
+  // it can't contribute to a money-weighted rate, and a single NaN time would poison the
+  // whole NPV. Then require ≥2 flows with both an inflow and an outflow, else there is no
+  // rate to solve for.
+  const dated = flows.filter((f) => Number.isFinite(f.date.getTime()))
+  if (dated.length < 2) return null
+  if (!dated.some((f) => f.amount > 0) || !dated.some((f) => f.amount < 0)) return null
 
-  const t0 = Math.min(...flows.map((f) => f.date.getTime()))
+  const t0 = Math.min(...dated.map((f) => f.date.getTime()))
   const years = (t: number) => (t - t0) / MS_PER_YEAR
   const npv = (r: number) =>
-    flows.reduce((s, f) => s + f.amount / Math.pow(1 + r, years(f.date.getTime())), 0)
+    dated.reduce((s, f) => s + f.amount / Math.pow(1 + r, years(f.date.getTime())), 0)
 
-  // Walk r upward looking for the first sign change and bisect that bracket. Scanning
-  // low→high means we lock onto the lowest root and never a spurious high one. Resolution
-  // is fine where real returns live and coarsens as r grows, so the sweep stays cheap.
-  let prevR = MIN_RATE
-  let prevF = npv(MIN_RATE)
-  if (!Number.isFinite(prevF)) return null
-  if (Math.abs(prevF) < 1e-9) return MIN_RATE
-
+  // Walk r upward looking for the first sign change between FINITE NPV samples and bisect
+  // that bracket. Scanning low→high locks onto the lowest (human-recognizable) root, never a
+  // spurious high one. A very long span — e.g. a years-old fully-closed position folded into a
+  // sleeve's combined flows — makes NPV overflow to ±∞ near −100% (a flow raised to a huge
+  // power); those samples are skipped rather than aborting the whole solve, since no real
+  // sleeve return lives down there. Resolution is fine where real returns live and coarsens as
+  // r grows, so the sweep stays cheap.
+  let prevR: number | null = null
+  let prevF = 0
   let step = 0.005
-  for (let r = MIN_RATE + step; r <= MAX_RATE; r += step) {
+  for (let r = MIN_RATE; r <= MAX_RATE; r += step) {
     const f = npv(r)
-    if (!Number.isFinite(f)) return null
-    if (prevF * f < 0) return bisect(npv, prevR, r, prevF)
-    if (f === 0) return r
-    prevR = r
-    prevF = f
+    if (Number.isFinite(f)) {
+      if (Math.abs(f) < 1e-9) return r
+      if (prevR !== null && prevF * f < 0) return bisect(npv, prevR, r, prevF)
+      prevR = r
+      prevF = f
+    }
     if (r >= 10) step = 0.5
     else if (r >= 1) step = 0.05
   }
