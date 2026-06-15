@@ -1,18 +1,37 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeftRight, ArrowUpDown, CandlestickChart, Check, ChevronDown, Layers, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeftRight, ArrowUpDown, CandlestickChart, Check, ChevronDown, Layers, LineChart, Plus, RefreshCw, Settings, Wallet } from 'lucide-react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { usePortfolio, useTrackedInstruments } from '../hooks/usePortfolio'
+import { usePortfolioHistory } from '../hooks/usePortfolioHistory'
 import { useActiveProfile, useProfiles } from '../hooks/useProfiles'
 import { useReturnMode } from '../hooks/useReturnMode'
-import { useDayMode, useIrrSleeve, type IrrSleeve } from '../hooks/useHeroToggles'
+import {
+  useDayMode,
+  useIrrSleeve,
+  useTrendExpanded,
+  useTrendRange,
+  useTrendView,
+  type IrrSleeve,
+  type TrendRange,
+} from '../hooks/useHeroToggles'
 import { orderHoldings, useHoldingsOrder } from '../hooks/useHoldingsOrder'
 import { useMarket } from '../store/market'
-import { AppBar, EmptyState, Loading, Spinner } from '../components/ui'
+import { AppBar, EmptyState, Loading, SegmentedControl, Spinner } from '../components/ui'
+import type { TrendView } from '../components/PortfolioChart'
 import { Sheet } from '../components/Sheet'
 import { SortableHoldings } from '../components/SortableHoldings'
 import { DeleteHoldingSheet } from '../components/DeleteHoldingSheet'
 import { formatINR, formatINRCompact, formatPct, formatSignedINR, sign } from '../lib/format'
 import type { Holding, Profile } from '../domain/types'
+
+// PortfolioChart pulls in recharts (~50 kB gz). This screen is eager (it's the first paint),
+// so a static import would drag recharts into the entry bundle even though the Trend chart
+// only renders once expanded. Lazy-loading moves recharts to its own async chunk (shared with
+// InstrumentDetail's PriceChart) so it stays off the first-paint path. Mirrors App.tsx's
+// React.lazy + named-export shim.
+const PortfolioChart = lazy(() =>
+  import('../components/PortfolioChart').then((m) => ({ default: m.PortfolioChart })),
+)
 
 export function PortfolioScreen() {
   const navigate = useNavigate()
@@ -400,6 +419,68 @@ function Hero({ summary }: { summary: ReturnType<typeof usePortfolio>['summary']
           </div>
         </div>
       )}
+
+      {showAlloc && <TrendSection />}
+    </div>
+  )
+}
+
+// Collapsible "value over time" section. The header (expand toggle) always renders, but the
+// data hook lives in TrendBody which only mounts when expanded — so opening it is what
+// triggers the one-time history fetch (keeps the home screen light on load).
+function TrendSection() {
+  const [open, toggle] = useTrendExpanded()
+  return (
+    <div className="trend">
+      <button
+        type="button"
+        className="trend-toggle"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-label={open ? 'Hide value trend' : 'Show value trend'}
+      >
+        <LineChart size={15} aria-hidden="true" />
+        Trend
+        <ChevronDown size={16} className="chev" aria-hidden="true" />
+      </button>
+      {open && <TrendBody />}
+    </div>
+  )
+}
+
+const RANGE_OPTIONS: { value: TrendRange; label: string }[] = [
+  { value: '1mo', label: '1M' },
+  { value: '6mo', label: '6M' },
+  { value: '1y', label: '1Y' },
+  { value: 'max', label: 'All' },
+]
+
+const VIEW_OPTIONS: { value: TrendView; label: string }[] = [
+  { value: 'value', label: '₹ Value' },
+  { value: 'pct', label: 'Return %' },
+]
+
+function TrendBody() {
+  const [view, setView] = useTrendView()
+  const [range, setRange] = useTrendRange()
+  const { points, loading } = usePortfolioHistory(range)
+  return (
+    <div className="trend-body">
+      <div className="trend-controls">
+        <SegmentedControl<TrendView> options={VIEW_OPTIONS} value={view} onChange={setView} />
+      </div>
+      <div className="trend-controls">
+        <SegmentedControl<TrendRange> options={RANGE_OPTIONS} value={range} onChange={setRange} />
+      </div>
+      <Suspense
+        fallback={
+          <div className="chart-wrap center" style={{ height: 160 }}>
+            <Spinner />
+          </div>
+        }
+      >
+        <PortfolioChart points={points} view={view} loading={loading} />
+      </Suspense>
     </div>
   )
 }

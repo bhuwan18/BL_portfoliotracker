@@ -503,6 +503,72 @@ button.hero-metric:active {
   opacity: 0.88;
 }
 
+/* ---------- Collapsible value-over-time (Trend) ---------- */
+.hero .trend {
+  margin-top: 14px;
+}
+.hero .trend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--text-xs);
+  opacity: 0.92;
+  padding: 2px 0;
+}
+.hero .trend-toggle .chev {
+  margin-left: auto;
+  transition: transform 0.18s ease;
+}
+.hero .trend-toggle[aria-expanded='true'] .chev {
+  transform: rotate(180deg);
+}
+.hero .trend-controls {
+  margin-top: 10px;
+}
+/* Translucent treatment so the segmented controls read as part of the accent hero rather
+   than the solid light pill used elsewhere on neutral surfaces. */
+.hero .trend-controls .segmented {
+  background: rgba(255, 255, 255, 0.14);
+}
+.hero .trend-controls .segmented button {
+  height: 34px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.hero .trend-controls .segmented button.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+/* Shared chart tooltip (PortfolioChart) — themed surface so it stays readable above the
+   accent hero in both light and dark. */
+.chart-tip {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 10px;
+  box-shadow: var(--shadow);
+}
+.chart-tip-v {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+.chart-tip-sub {
+  font-size: var(--text-2xs);
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.chart-tip-date {
+  font-size: var(--text-2xs);
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
 /* ---------- Stat tiles ---------- */
 .stat-grid {
   display: grid;
