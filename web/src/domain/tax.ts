@@ -225,14 +225,22 @@ function buildDebtEstimate(
   return { buckets, notes }
 }
 
-// Walks the FIFO lots in their real sell order (oldest first — the order buildFifoLots
-// already leaves them in) and accumulates units/value while the running tax stays at zero:
-// loss/breakeven lots are always free and don't consume the equity LTCG exemption; equity LTCG
-// lots with a gain eat into the shared ₹1.25L exemption (with a partial-lot split at the point
-// it runs out); any other taxable lot (equity STCG, debt at slab rate, or grandfathered debt
-// LTCG) has no exemption at all, so hitting one — even partially — stops the walk right there.
-// A later lot can never be sold ahead of an earlier taxable one under FIFO, so this is a hard
-// stop, not a "skip this lot and keep going."
+// Threshold of tax-free net gain per bucket: equity LTCG gets the shared ₹1.25L exemption;
+// every other bucket is taxed from its first rupee of net gain, so its threshold is ₹0.
+function zeroTaxThreshold(regime: TaxRegime): number {
+  return regime === 'equity_ltcg' ? EQUITY_LTCG_EXEMPTION_INR : 0
+}
+
+// How many of the oldest (FIFO) units can be sold today for zero tax.
+//
+// Total tax is zero **iff every bucket sits at/under its own threshold simultaneously** — the
+// per-bucket taxes are summed and each is floored at zero, so one over-threshold bucket is
+// enough to owe tax no matter what the others do. That condition is NOT monotonic as the FIFO
+// prefix grows: a gain lot can push a bucket over, and a *later loss lot in the same bucket*
+// can net it back under (e.g. an old big-gain lot followed by a smaller-loss lot, both LTCG).
+// A greedy "stop at the first taxable lot" walk therefore under-reports. Instead we walk every
+// lot tracking each bucket's running net, and record the LARGEST prefix (down to a partial lot)
+// at which the all-buckets-tax-free condition holds.
 function computeZeroTaxAllowance(
   lots: TaxLot[],
   price: number,
@@ -240,47 +248,60 @@ function computeZeroTaxAllowance(
   today: string,
   debtSlabPct: number,
 ): ZeroTaxAllowance {
-  let units = 0
-  let value = 0
-  let ltcgGainUsed = 0
-  let nextRatePct: number | null = null
+  const nets: Record<TaxRegime, number> = {
+    equity_stcg: 0,
+    equity_ltcg: 0,
+    debt_stcg_slab: 0,
+    debt_ltcg_grandfathered: 0,
+  }
+  const regimes = Object.keys(nets) as TaxRegime[]
+  const totalUnits = lots.reduce((s, l) => s + l.units, 0)
+
+  let unitsBefore = 0
+  let bestUnits = 0
 
   for (const lot of lots) {
-    const perUnitGain = price - lot.costPerUnit
-    if (perUnitGain <= 0) {
-      units += lot.units
-      value += lot.units * price
-      continue
-    }
-
     const regime = classifyLot(lot, assetClass, today)
-    if (regime === 'equity_ltcg') {
-      const remainingExemption = EQUITY_LTCG_EXEMPTION_INR - ltcgGainUsed
-      if (remainingExemption <= 0) {
-        nextRatePct = rateForRegime(regime, debtSlabPct)
-        break
+    const perUnitGain = price - lot.costPerUnit
+    const thr = zeroTaxThreshold(regime)
+    const cur = nets[regime]
+
+    // Extending the prefix into this lot moves ONLY this lot's bucket; every other bucket stays
+    // at its running total. So a prefix ending inside this lot can be tax-free only when all the
+    // other buckets are already at/under their thresholds.
+    const othersOk = regimes.every((r) => r === regime || nets[r] <= zeroTaxThreshold(r) + 1e-6)
+    if (othersOk) {
+      let okUnits = 0
+      if (perUnitGain <= 0) {
+        // Loss/breakeven: net only falls as units are added, so the whole lot qualifies as long
+        // as its end point lands at/under the threshold.
+        if (cur + lot.units * perUnitGain <= thr + 1e-6) okUnits = lot.units
+      } else if (cur <= thr + 1e-6) {
+        // Gain: net rises with units — take units until the threshold is hit (or the whole lot).
+        okUnits = Math.min(lot.units, (thr - cur) / perUnitGain)
       }
-      const lotGain = perUnitGain * lot.units
-      if (lotGain <= remainingExemption) {
-        units += lot.units
-        value += lot.units * price
-        ltcgGainUsed += lotGain
-        continue
-      }
-      const partialUnits = remainingExemption / perUnitGain
-      units += partialUnits
-      value += partialUnits * price
-      nextRatePct = rateForRegime(regime, debtSlabPct)
-      break
+      if (unitsBefore + okUnits > bestUnits) bestUnits = unitsBefore + okUnits
     }
 
-    // equity_stcg / debt_stcg_slab / debt_ltcg_grandfathered: no exemption modeled — the first
-    // rupee of gain here is taxable, so the walk stops before this lot.
-    nextRatePct = rateForRegime(regime, debtSlabPct)
-    break
+    nets[regime] = cur + lot.units * perUnitGain
+    unitsBefore += lot.units
   }
 
-  return { units, value, nextRatePct }
+  // The rate on the next rupee of gain past the allowance is whatever bucket the first unit
+  // beyond `bestUnits` falls into (null if the entire holding is sellable tax-free).
+  let nextRatePct: number | null = null
+  if (bestUnits < totalUnits - 1e-9) {
+    let acc = 0
+    for (const lot of lots) {
+      acc += lot.units
+      if (acc > bestUnits + 1e-9) {
+        nextRatePct = rateForRegime(classifyLot(lot, assetClass, today), debtSlabPct)
+        break
+      }
+    }
+  }
+
+  return { units: bestUnits, value: bestUnits * price, nextRatePct }
 }
 
 // The earliest-maturing equity STCG lot that's currently sitting on a gain — the one lot where
@@ -327,29 +348,17 @@ export function estimateTaxIfSoldToday(
 
   if (buckets.length === 0) return null
 
-  const totalUnits = buckets.reduce((s, b) => s + b.units, 0)
-  const totalTax = buckets.reduce((s, b) => s + b.tax, 0)
-
-  // The FIFO walk below stops at the first lot that's taxable in isolation — it can't see a
-  // later same-bucket loss lot that would net against it. But totalUnits is already the most
-  // you could ever sell, so if selling everything really does net to zero tax (the loss lot
-  // included), that's a strictly better answer than the conservative partial-sale prefix.
-  let zeroTax = computeZeroTaxAllowance(lots, currentPrice, assetClass, today, opts.debtSlabPct)
-  if (totalTax <= 1e-6 && zeroTax.units < totalUnits - 1e-9) {
-    zeroTax = { units: totalUnits, value: totalUnits * currentPrice, nextRatePct: null }
-  }
-
   return {
     instrumentId: instrument.id,
     assetClass,
     asOf: today,
     currentPrice,
-    totalUnits,
+    totalUnits: buckets.reduce((s, b) => s + b.units, 0),
     totalGain: buckets.reduce((s, b) => s + b.gain, 0),
-    totalTax,
+    totalTax: buckets.reduce((s, b) => s + b.tax, 0),
     buckets,
     notes,
-    zeroTax,
+    zeroTax: computeZeroTaxAllowance(lots, currentPrice, assetClass, today, opts.debtSlabPct),
     upcomingLtcgTransition: findUpcomingLtcgTransition(lots, currentPrice, assetClass, today),
   }
 }
