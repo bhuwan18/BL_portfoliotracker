@@ -17,7 +17,7 @@
      Tight at the small end (many UI roles), ~1.2 at the display end. Hierarchy is scale +
      weight — see DESIGN.md. Base stays 14px: this is a data-dense product, not 16px body. */
   --text-2xs: 0.6875rem; /* 11px — badges, tiny labels */
-  --text-xs: 0.75rem; /* 12px — captions, metadata, subtitles, help */
+  --text-xs: 0.8125rem; /* 13px — captions, metadata, subtitles, help */
   --text-sm: 0.8125rem; /* 13px — secondary UI, section labels, chips */
   --text-base: 0.875rem; /* 14px — body, row titles, list text */
   --text-lg: 1rem; /* 16px — inputs (iOS-zoom floor), small headings */

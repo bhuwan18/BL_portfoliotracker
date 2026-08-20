@@ -327,17 +327,29 @@ export function estimateTaxIfSoldToday(
 
   if (buckets.length === 0) return null
 
+  const totalUnits = buckets.reduce((s, b) => s + b.units, 0)
+  const totalTax = buckets.reduce((s, b) => s + b.tax, 0)
+
+  // The FIFO walk below stops at the first lot that's taxable in isolation — it can't see a
+  // later same-bucket loss lot that would net against it. But totalUnits is already the most
+  // you could ever sell, so if selling everything really does net to zero tax (the loss lot
+  // included), that's a strictly better answer than the conservative partial-sale prefix.
+  let zeroTax = computeZeroTaxAllowance(lots, currentPrice, assetClass, today, opts.debtSlabPct)
+  if (totalTax <= 1e-6 && zeroTax.units < totalUnits - 1e-9) {
+    zeroTax = { units: totalUnits, value: totalUnits * currentPrice, nextRatePct: null }
+  }
+
   return {
     instrumentId: instrument.id,
     assetClass,
     asOf: today,
     currentPrice,
-    totalUnits: buckets.reduce((s, b) => s + b.units, 0),
+    totalUnits,
     totalGain: buckets.reduce((s, b) => s + b.gain, 0),
-    totalTax: buckets.reduce((s, b) => s + b.tax, 0),
+    totalTax,
     buckets,
     notes,
-    zeroTax: computeZeroTaxAllowance(lots, currentPrice, assetClass, today, opts.debtSlabPct),
+    zeroTax,
     upcomingLtcgTransition: findUpcomingLtcgTransition(lots, currentPrice, assetClass, today),
   }
 }
