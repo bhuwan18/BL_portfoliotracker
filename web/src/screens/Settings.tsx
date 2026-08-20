@@ -7,6 +7,7 @@ import {
   Lock,
   Palette,
   Pencil,
+  Percent,
   ScanFace,
   Share2,
   ShieldOff,
@@ -18,6 +19,7 @@ import {
 import { db, getSetting, setSetting } from '../db'
 import { usePortfolio } from '../hooks/usePortfolio'
 import { useActiveProfile, useProfiles } from '../hooks/useProfiles'
+import { useTaxSlabPct } from '../hooks/useTaxSlab'
 import { createProfile, deleteProfile, renameProfile } from '../db/repo'
 import { AppBar, SegmentedControl, Spinner, useToast } from '../components/ui'
 import { Sheet } from '../components/Sheet'
@@ -60,6 +62,7 @@ export function SettingsScreen() {
   const theme = useLiveQuery(() => getSetting<ThemeMode>('theme', 'system'))
   const [bioSupported, setBioSupported] = useState(false)
   const [bioBusy, setBioBusy] = useState(false)
+  const [taxSlabPct, setTaxSlabPct] = useTaxSlabPct()
 
   useEffect(() => {
     void isBiometricSupported().then(setBioSupported)
@@ -282,6 +285,31 @@ export function SettingsScreen() {
                   options={THEME_OPTIONS}
                   value={themeValue}
                   onChange={onThemeChange}
+                />
+              </div>
+            </span>
+          </div>
+        </div>
+
+        <div className="section">
+          <div className="section-title">Tax</div>
+          <div className="setting">
+            <span className="ic">
+              <Percent size={18} />
+            </span>
+            <span className="lbl">
+              <div className="t">Your tax slab (%)</div>
+              <div className="d">Used for slab-rate gains on debt/hybrid mutual funds in the "Tax if sold today" estimate</div>
+              <div style={{ marginTop: 10 }}>
+                <input
+                  className="input tnum"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={45}
+                  value={taxSlabPct}
+                  onChange={(e) => void setTaxSlabPct(Number(e.target.value))}
+                  style={{ maxWidth: 100 }}
                 />
               </div>
             </span>

@@ -9,13 +9,24 @@ import { EditTransactionSheet } from '../components/EditTransactionSheet'
 import { useHolding, useInstrument, useInstrumentTxns } from '../hooks/usePortfolio'
 import { useActiveProfile } from '../hooks/useProfiles'
 import { useReturnMode } from '../hooks/useReturnMode'
+import { useTaxEstimate } from '../hooks/useTaxEstimate'
+import { useTaxSlabPct } from '../hooks/useTaxSlab'
 import { useMarket } from '../store/market'
 import { db } from '../db'
 import { deleteSip, deleteTransaction, pruneInstrument, setSipActive } from '../db/repo'
 import { fetchHistory } from '../api/instrument'
 import { FREQUENCY_LABEL, isComplete, nextDueDate } from '../domain/sip'
 import type { Transaction } from '../domain/types'
-import { formatDate, formatDateShort, formatINR, formatNumber, formatPct, formatSignedNumber, formatUnits, sign } from '../lib/format'
+import {
+  formatDate,
+  formatDateShort,
+  formatINR,
+  formatNumber,
+  formatPct,
+  formatSignedNumber,
+  formatUnits,
+  sign,
+} from '../lib/format'
 
 export function InstrumentDetailScreen() {
   const navigate = useNavigate()
@@ -43,6 +54,9 @@ export function InstrumentDetailScreen() {
   const [chartLoading, setChartLoading] = useState(true)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [mode, toggleMode] = useReturnMode()
+  const priceForTax = snapshot?.price ?? holding?.price ?? 0
+  const taxEstimate = useTaxEstimate(id, priceForTax)
+  const [debtSlabPct] = useTaxSlabPct()
 
   // Refresh the live price once the instrument is known.
   useEffect(() => {
@@ -201,6 +215,43 @@ export function InstrumentDetailScreen() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {holding && holding.units > 0 && taxEstimate && (
+        <div className="screen section">
+          <div className="section-title">Tax if sold today</div>
+          <div className="card">
+            <div className="k">Estimated tax</div>
+            <div className="v">{formatINR(taxEstimate.totalTax, 0)}</div>
+
+            <div className="summary-2" style={{ marginTop: 12 }}>
+              {taxEstimate.buckets.map((b) => (
+                <div key={b.regime}>
+                  <div className="k">{b.label}</div>
+                  <div className="v">{formatINR(b.currentValue, 0)}</div>
+                  <div className="faint" style={{ fontSize: 'var(--text-xs)', marginTop: 2 }}>
+                    Gain {formatSignedNumber(b.gain, 0)} · {b.ratePct}% · tax {formatINR(b.tax, 0)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {taxEstimate.assetClass === 'other' && (
+              <p className="help">
+                Slab-rate gains use your tax slab of {debtSlabPct}% — change this in Settings → Tax.
+              </p>
+            )}
+            {taxEstimate.notes.map((n, i) => (
+              <p key={i} className="help">
+                {n}
+              </p>
+            ))}
+            <p className="help">
+              Estimate only, based on rules as of the July 2024 Budget. Not tax advice, consult a CA before
+              filing.
+            </p>
           </div>
         </div>
       )}
