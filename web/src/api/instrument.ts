@@ -96,7 +96,7 @@ export async function fetchQuote(inst: Instrument): Promise<PriceSnapshot | null
       instrumentId: inst.id,
       price: s.latestNav,
       prevClose: s.prevNav,
-      asOf: Date.now(),
+      asOf: new Date(s.latestDate + 'T00:00:00').getTime(),
       name: s.schemeName,
       currency: 'INR',
     }
