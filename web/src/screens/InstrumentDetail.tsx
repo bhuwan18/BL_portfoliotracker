@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { AppBar, Delta, EmptyState, Pill } from '../components/ui'
 import { PriceChart } from '../components/PriceChart'
 import { InstrumentAvatar } from '../components/InstrumentAvatar'
@@ -11,6 +11,7 @@ import { useActiveProfile } from '../hooks/useProfiles'
 import { useReturnMode } from '../hooks/useReturnMode'
 import { useTaxEstimate } from '../hooks/useTaxEstimate'
 import { useTaxSlabPct } from '../hooks/useTaxSlab'
+import { EQUITY_LTCG_RATE_PCT, EQUITY_STCG_RATE_PCT } from '../domain/tax'
 import { useMarket } from '../store/market'
 import { db } from '../db'
 import { deleteSip, deleteTransaction, pruneInstrument, setSipActive } from '../db/repo'
@@ -54,6 +55,7 @@ export function InstrumentDetailScreen() {
   const [chartLoading, setChartLoading] = useState(true)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [mode, toggleMode] = useReturnMode()
+  const [taxOpen, setTaxOpen] = useState(false)
   const priceForTax = snapshot?.price ?? holding?.price ?? 0
   const taxEstimate = useTaxEstimate(id, priceForTax)
   const [debtSlabPct] = useTaxSlabPct()
@@ -221,38 +223,76 @@ export function InstrumentDetailScreen() {
 
       {holding && holding.units > 0 && taxEstimate && (
         <div className="screen section">
-          <div className="section-title">Tax if sold today</div>
-          <div className="card">
-            <div className="k">Estimated tax</div>
-            <div className="v">{formatINR(taxEstimate.totalTax, 0)}</div>
+          <button
+            type="button"
+            className="section-title"
+            style={{ width: '100%', cursor: 'pointer', background: 'none', border: 0, padding: 0, textAlign: 'left' }}
+            onClick={() => setTaxOpen((v) => !v)}
+            aria-expanded={taxOpen}
+            aria-label={taxOpen ? 'Hide tax details' : 'Show tax details'}
+          >
+            Tax if sold today
+            <ChevronDown
+              size={16}
+              aria-hidden="true"
+              style={{ transform: taxOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s ease' }}
+            />
+          </button>
+          {taxOpen && (
+            <div className="card">
+              <div className="k">Recommended</div>
+              <div className="v" style={{ fontSize: 'var(--text-md)' }}>
+                {taxEstimate.zeroTax.units > 1e-9
+                  ? `Sell up to ${formatUnits(taxEstimate.zeroTax.units)} units (${formatINR(taxEstimate.zeroTax.value, 0)}) today for zero tax`
+                  : `Selling any units today will be taxed${taxEstimate.zeroTax.nextRatePct != null ? ` at ${taxEstimate.zeroTax.nextRatePct}%` : ''}`}
+              </div>
+              {taxEstimate.zeroTax.units > 1e-9 &&
+                taxEstimate.zeroTax.nextRatePct != null &&
+                taxEstimate.zeroTax.units < taxEstimate.totalUnits - 1e-9 && (
+                  <p className="help">Selling beyond that starts getting taxed at {taxEstimate.zeroTax.nextRatePct}%.</p>
+                )}
+              {taxEstimate.upcomingLtcgTransition && (
+                <p className="help">
+                  Waiting until {formatDate(taxEstimate.upcomingLtcgTransition.ltcgDate)} (
+                  {taxEstimate.upcomingLtcgTransition.daysRemaining} days) would drop the rate on{' '}
+                  {formatUnits(taxEstimate.upcomingLtcgTransition.units)} units from{' '}
+                  {EQUITY_STCG_RATE_PCT}% to {EQUITY_LTCG_RATE_PCT}%.
+                </p>
+              )}
 
-            <div className="summary-2" style={{ marginTop: 12 }}>
-              {taxEstimate.buckets.map((b) => (
-                <div key={b.regime}>
-                  <div className="k">{b.label}</div>
-                  <div className="v">{formatINR(b.currentValue, 0)}</div>
-                  <div className="faint" style={{ fontSize: 'var(--text-xs)', marginTop: 2 }}>
-                    Gain {formatSignedNumber(b.gain, 0)} · {b.ratePct}% · tax {formatINR(b.tax, 0)}
-                  </div>
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-soft)' }}>
+                <div className="k">Estimated tax if sold in full</div>
+                <div className="v">{formatINR(taxEstimate.totalTax, 0)}</div>
+
+                <div className="summary-2" style={{ marginTop: 12 }}>
+                  {taxEstimate.buckets.map((b) => (
+                    <div key={b.regime}>
+                      <div className="k">{b.label}</div>
+                      <div className="v">{formatINR(b.currentValue, 0)}</div>
+                      <div className="faint" style={{ fontSize: 'var(--text-xs)', marginTop: 2 }}>
+                        Gain {formatSignedNumber(b.gain, 0)} · {b.ratePct}% · tax {formatINR(b.tax, 0)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {taxEstimate.assetClass === 'other' && (
-              <p className="help">
-                Slab-rate gains use your tax slab of {debtSlabPct}% — change this in Settings → Tax.
-              </p>
-            )}
-            {taxEstimate.notes.map((n, i) => (
-              <p key={i} className="help">
-                {n}
-              </p>
-            ))}
-            <p className="help">
-              Estimate only, based on rules as of the July 2024 Budget. Not tax advice, consult a CA before
-              filing.
-            </p>
-          </div>
+                {taxEstimate.assetClass === 'other' && (
+                  <p className="help">
+                    Slab-rate gains use your tax slab of {debtSlabPct}% — change this in Settings → Tax.
+                  </p>
+                )}
+                {taxEstimate.notes.map((n, i) => (
+                  <p key={i} className="help">
+                    {n}
+                  </p>
+                ))}
+                <p className="help">
+                  Estimate only, based on rules as of the July 2024 Budget. Not tax advice — consult a CA
+                  before filing.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
